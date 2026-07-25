@@ -41,12 +41,13 @@ backend/app/
   database.py      # SQLAlchemy engine + session
   models.py        # Models: Product, Order
   schemas.py       # Pydantic schemas
-  routers/         # API routers (products, orders)
+  routers/         # API routers (products, orders, settings)
   services/        # Clients HTTP: moonraker.py, spoolman.py
 
 frontend/src/
-  App.jsx          # Componente principal (placeholder)
+  App.jsx          # Componente principal com navegação
   main.jsx         # Entry point React
+  pages/           # Páginas: Settings.jsx
 ```
 
 ## Convenções
@@ -57,6 +58,7 @@ frontend/src/
 - **Moonraker**: API REST em `http://localhost:7125` (configurável via `MOONRAKER_URL`)
 - **Spoolman**: API REST em `http://localhost:7912` (configurável via `SPOOLMAN_URL`)
 - **CORS**: Frontend assume porta 5173 (Vite default)
+- **Settings**: Configurações salvas em `backend/settings.json` (gitignored)
 
 ## Módulos previstos (criar separadamente)
 

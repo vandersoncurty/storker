@@ -12,6 +12,9 @@ env/
 # SQLite
 *.db
 
+# App settings (user-specific)
+settings.json
+
 # Node
 node_modules/
 frontend/dist/
