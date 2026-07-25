@@ -1,6 +1,5 @@
 """Serviço de sincronização Thingiverse - baixa STLs, imagens e cria Products."""
 
-import json
 from datetime import datetime
 from pathlib import Path
 
@@ -10,19 +9,12 @@ from ..config import THINGIVERSE_MODELS_DIR, PRODUCT_IMAGES_DIR
 from ..models import Product, ProductImage, ThingiverseCollectionConfig, ThingiverseSync
 from ..schemas import SyncResult
 from . import thingiverse
-
-
-def _load_settings() -> dict:
-    settings_path = Path(__file__).resolve().parent.parent / "settings.json"
-    if settings_path.exists():
-        return json.loads(settings_path.read_text())
-    return {}
+from ..routers.settings_file import load_settings
 
 
 def _get_download_dir() -> Path:
-    settings = _load_settings()
-    integrations = settings.get("integrations", {})
-    raw = integrations.get("thingiverse_download_dir", str(THINGIVERSE_MODELS_DIR))
+    settings = load_settings()
+    raw = settings.thingiverse.download_dir
     path = Path(raw)
     if not path.is_absolute():
         path = Path(__file__).resolve().parent.parent.parent / raw
@@ -44,6 +36,25 @@ def _files_exist(local_path: str) -> bool:
         return False
     stl_files = list(path.glob("*.stl"))
     return len(stl_files) > 0
+
+
+def _extract_image_url(img: dict) -> str:
+    """Extrai URL de melhor resolução de uma imagem Thingiverse.
+
+    sizes é uma lista de dicts [{type, size, url}].
+    Prioriza: preview/large > thumb/large > url direta.
+    """
+    sizes = img.get("sizes", [])
+    if isinstance(sizes, list):
+        for s in sizes:
+            if s.get("type") == "preview" and s.get("size") == "large":
+                return s.get("url", "")
+        for s in sizes:
+            if s.get("type") == "thumb" and s.get("size") == "large":
+                return s.get("url", "")
+        if sizes:
+            return sizes[0].get("url", "")
+    return img.get("url", "")
 
 
 async def sync_collection(collection_id: int, db: Session) -> SyncResult:
@@ -134,7 +145,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
 
                 for idx, img in enumerate(tv_images):
                     try:
-                        img_url = img.get("sizes", {}).get("large", {}).get("url") or img.get("url", "")
+                        img_url = _extract_image_url(img)
                         if not img_url:
                             continue
 
