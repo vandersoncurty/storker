@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_URL } from '../api';
+import ThingiverseIcon from '../components/ThingiverseIcon';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -59,12 +60,6 @@ export default function Products() {
     </div>
   );
 }
-
-const ThingiverseIcon = ({ size = 16 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3-13.5c0 .83-.67 1.5-1.5 1.5S12 7.33 12 6.5 12.67 5 13.5 5 15 5.67 15 6.5zM12 9c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
-  </svg>
-);
 
 function ProductCard({ product, onEdit }) {
   const primaryImage = product.images.find(i => i.is_primary);
