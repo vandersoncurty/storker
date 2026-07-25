@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import CORS_ORIGINS, PRODUCT_IMAGES_DIR
-from .database import Base, engine
+from .database import check_and_migrate
 from .routers import products, orders, settings, thingiverse
 
-Base.metadata.create_all(bind=engine)
+check_and_migrate()
 
 app = FastAPI(
     title="Storker",

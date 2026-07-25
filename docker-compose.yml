@@ -5,8 +5,9 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=sqlite:///./store.db
       - MOONRAKER_URL=http://host.docker.internal:7125
       - SPOOLMAN_URL=http://host.docker.internal:7912
     volumes:
