@@ -183,22 +183,22 @@ function EditModal({ product, onClose, onRefresh }) {
     }} onClick={onClose}>
       <div style={{
         background: 'var(--bg)', borderRadius: '12px', padding: '24px',
-        width: '600px', maxHeight: '80vh', overflow: 'auto',
+        width: '90vw', maxWidth: '720px', maxHeight: '85vh', overflow: 'auto',
       }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: 0 }}>Editar Produto</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--text)' }}>X</button>
         </div>
 
-        <div style={{ display: 'grid', gap: '12px' }}>
+        <div style={{ display: 'grid', gap: '14px' }}>
           <Field label="Título" value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} />
           <label style={{ display: 'grid', gap: '4px' }}>
             <span style={{ fontSize: '14px', fontWeight: '500' }}>Descrição</span>
             <textarea
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              rows={3}
-              style={{ padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '14px', resize: 'vertical' }}
+              rows={5}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '14px', resize: 'vertical', minHeight: '80px' }}
             />
           </label>
 
@@ -226,37 +226,40 @@ function EditModal({ product, onClose, onRefresh }) {
         <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h3 style={{ margin: 0, fontSize: '15px' }}>Imagens</h3>
-            <button onClick={() => fileInputRef.current?.click()} style={{
-              padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)',
-              background: 'var(--bg)', cursor: 'pointer', fontSize: '13px',
-            }}>
-              Enviar imagem
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text)' }}>{product.images.length} imagem(ns)</span>
+              <button onClick={() => fileInputRef.current?.click()} style={{
+                padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)',
+                background: 'var(--bg)', cursor: 'pointer', fontSize: '13px',
+              }}>
+                Enviar imagem
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
             {product.images.map(img => {
               const imgSrc = `http://localhost:8000/images/products/${img.file_path.split('/').pop()}`;
               return (
                 <div key={img.id} style={{
-                  width: '80px', height: '80px', borderRadius: '6px', overflow: 'hidden',
+                  aspectRatio: '1', borderRadius: '6px', overflow: 'hidden',
                   border: img.is_primary ? '2px solid var(--accent)' : '1px solid var(--border)',
                   position: 'relative', cursor: 'pointer',
                 }} onClick={() => handleSetPrimary(img.id)}>
-                  <img src={imgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={imgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   {img.source === 'thingiverse' && (
                     <span style={{
                       position: 'absolute', bottom: 0, left: 0, right: 0,
-                      background: '#1a73e8', color: '#fff', fontSize: '8px',
-                      textAlign: 'center', padding: '1px',
+                      background: '#1a73e8', color: '#fff', fontSize: '9px',
+                      textAlign: 'center', padding: '1px 0',
                     }}>TV</span>
                   )}
                   {img.is_primary && (
                     <span style={{
                       position: 'absolute', top: 0, left: 0, right: 0,
-                      background: 'var(--accent)', color: '#fff', fontSize: '8px',
-                      textAlign: 'center', padding: '1px',
+                      background: 'var(--accent)', color: '#fff', fontSize: '9px',
+                      textAlign: 'center', padding: '1px 0',
                     }}>Principal</span>
                   )}
                 </div>
