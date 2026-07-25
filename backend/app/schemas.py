@@ -90,10 +90,23 @@ class SettingsThingiverse(BaseModel):
     app_token: str = ""  # vazio = usar THINGIVERSE_APP_TOKEN do .env
 
 
+class SettingsStore(BaseModel):
+    name: str = "Minha Loja 3D"
+    currency: str = "BRL"
+    tax_rate: float = 0.0
+    markup_percentage: float = 30.0
+
+
+class SettingsPrinters(BaseModel):
+    default_server: str = "http://localhost:7125"
+
+
 class Settings(BaseModel):
     moonraker: SettingsMoonraker = SettingsMoonraker()
     spoolman: SettingsSpoolman = SettingsSpoolman()
     thingiverse: SettingsThingiverse = SettingsThingiverse()
+    store: SettingsStore = SettingsStore()
+    printers: SettingsPrinters = SettingsPrinters()
 
 
 class ThingiverseCollectionCreate(BaseModel):

@@ -24,9 +24,8 @@ export default function StlFiles() {
       setError(null);
       const res = await axios.get(`${API_URL}/stl/projects`);
       setProjects(res.data);
-    } catch (err) {
+    } catch {
       setError('Erro ao carregar projetos');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -74,6 +73,53 @@ export default function StlFiles() {
     }
   };
 
+  const handleDownloadStl = async (e, project) => {
+    e.stopPropagation();
+    try {
+      const resp = await axios.get(`${API_URL}/stl/projects/${project.id}/download/stl`, { responseType: 'blob' });
+      const url = URL.createObjectURL(resp.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = resp.headers['content-disposition']?.match(/filename="?(.+?)"?$/)?.[1] || `${project.name}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showMessage('Download STL iniciado!');
+    } catch {
+      showMessage('Erro ao baixar STL', 'error');
+    }
+  };
+
+  const handleDownloadGcode = async (e, project) => {
+    e.stopPropagation();
+    try {
+      const resp = await axios.get(`${API_URL}/stl/projects/${project.id}/download/gcode`, { responseType: 'blob' });
+      const url = URL.createObjectURL(resp.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = resp.headers['content-disposition']?.match(/filename="?(.+?)"?$/)?.[1] || `${project.name}_gcode.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showMessage('GCode baixado!');
+    } catch {
+      showMessage('Nenhum GCode para baixar', 'error');
+    }
+  };
+
+  const handleLinkGcode = async (e, project) => {
+    e.stopPropagation();
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await axios.post(`${API_URL}/stl/projects/${project.id}/link-gcode`, formData);
+      showMessage('GCode vinculado!');
+      loadProjects();
+    } catch {
+      showMessage('Erro ao vincular GCode', 'error');
+    }
+  };
+
   const thingiverseProjects = projects.filter(p => p.source === 'thingiverse');
   const uploadedProjects = projects.filter(p => p.source === 'upload');
 
@@ -109,7 +155,7 @@ export default function StlFiles() {
         </h2>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <label style={{ display: 'grid', gap: '6px', flex: 1, minWidth: '200px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-h)' }}>Arquivos STL</span>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-h)' }}>Arquivos STL ou ZIP</span>
             <input
               type="file" accept=".stl,.zip" multiple
               onChange={e => setUploadFiles(Array.from(e.target.files))}
@@ -145,7 +191,8 @@ export default function StlFiles() {
         ) : (
           <div style={{ display: 'grid', gap: '4px', padding: '12px' }}>
             {uploadedProjects.map(p => (
-              <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject} />
+              <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject}
+                onDownloadStl={handleDownloadStl} onDownloadGcode={handleDownloadGcode} onLinkGcode={handleLinkGcode} />
             ))}
           </div>
         )}
@@ -163,7 +210,8 @@ export default function StlFiles() {
         ) : (
           <div style={{ display: 'grid', gap: '4px', padding: '12px' }}>
             {thingiverseProjects.map(p => (
-              <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject} />
+              <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject}
+                onDownloadStl={handleDownloadStl} onDownloadGcode={handleDownloadGcode} onLinkGcode={handleLinkGcode} />
             ))}
           </div>
         )}
@@ -180,9 +228,10 @@ export default function StlFiles() {
   );
 }
 
-function ProjectRow({ project, onEdit, onDelete }) {
+function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode, onLinkGcode }) {
   const hasStl = project.files.some(f => f.file_type === 'stl');
   const hasGcode = project.files.some(f => f.file_type === 'gcode');
+  const [linkingId, setLinkingId] = useState(null);
 
   return (
     <div
@@ -223,13 +272,43 @@ function ProjectRow({ project, onEdit, onDelete }) {
               </span>
             )}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text)', marginTop: '2px', display: 'flex', gap: '12px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text)', marginTop: '2px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <span>{project.files.length} arquivo(s)</span>
             <span>{hasStl ? 'STL' : ''}{hasStl && hasGcode ? ' + ' : ''}{hasGcode ? 'GCode' : ''}</span>
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+        {hasStl && (
+          <button onClick={e => onDownloadStl(e, project)} title="Baixar STL" style={{
+            padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+            background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m-4-4l4 4 4-4M8 8l4-4 4 4"/></svg>
+          </button>
+        )}
+        {hasGcode && (
+          <button onClick={e => onDownloadGcode(e, project)} title="Baixar GCode" style={{
+            padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+            background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--success)',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m-4-4l4 4 4-4"/></svg>
+          </button>
+        )}
+        {!hasGcode && (
+          <>
+            <button onClick={() => setLinkingId(project.id)} title="Vincular GCode" style={{
+              padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+              background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--warning)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            </button>
+            {linkingId === project.id && (
+              <input type="file" accept=".gcode" style={{ width: '100px', fontSize: '11px' }}
+                onChange={e => { onLinkGcode(e, project); setLinkingId(null); }} />
+            )}
+          </>
+        )}
         <button onClick={e => { e.stopPropagation(); onEdit(project); }} style={{
           padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
           background: 'transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--text)',
@@ -253,6 +332,9 @@ function EditProjectModal({ project, onClose, onSave }) {
   const [title, setTitle] = useState(project.title || project.name);
   const [description, setDescription] = useState(project.description || '');
 
+  const stlFiles = project.files.filter(f => f.file_type === 'stl');
+  const gcodeFiles = project.files.filter(f => f.file_type === 'gcode');
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
@@ -261,13 +343,14 @@ function EditProjectModal({ project, onClose, onSave }) {
     }} onClick={onClose}>
       <div style={{
         background: 'var(--bg)', borderRadius: 'var(--radius-lg)',
-        width: '90vw', maxWidth: '500px',
+        width: '90vw', maxWidth: '540px', maxHeight: '85vh',
+        display: 'flex', flexDirection: 'column',
         boxShadow: 'var(--shadow-lg)',
       }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
           <h2 style={{ margin: 0, fontSize: '18px' }}>Editar Projeto</h2>
         </div>
-        <div style={{ padding: '24px', display: 'grid', gap: '16px' }}>
+        <div style={{ padding: '24px', overflow: 'auto', display: 'grid', gap: '16px' }}>
           <label style={{ display: 'grid', gap: '6px' }}>
             <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-h)' }}>Título</span>
             <input value={title} onChange={e => setTitle(e.target.value)}
@@ -278,12 +361,52 @@ function EditProjectModal({ project, onClose, onSave }) {
           </label>
           <label style={{ display: 'grid', gap: '6px' }}>
             <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-h)' }}>Descrição</span>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4}
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
               style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px', resize: 'vertical' }}
               onFocus={e => e.currentTarget.style.borderColor = 'var(--accent)'}
               onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
             />
           </label>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+            <h3 style={{ fontSize: '14px', margin: '0 0 10px', color: 'var(--text-h)' }}>
+              Arquivos ({project.files.length})
+            </h3>
+            {stlFiles.length > 0 && (
+              <div style={{ marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>STL</span>
+                {stlFiles.map(f => (
+                  <div key={f.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '6px 8px', marginTop: '4px',
+                    background: 'var(--bg-muted)', borderRadius: 'var(--radius-sm)',
+                    fontSize: '13px',
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    <span style={{ flex: 1, color: 'var(--text-h)' }}>{f.filename}</span>
+                    {f.is_sliced && <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '600' }}>Fatiado</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {gcodeFiles.length > 0 && (
+              <div>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>GCode</span>
+                {gcodeFiles.map(f => (
+                  <div key={f.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '6px 8px', marginTop: '4px',
+                    background: 'var(--bg-muted)', borderRadius: 'var(--radius-sm)',
+                    fontSize: '13px',
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span style={{ flex: 1, color: 'var(--text-h)' }}>{f.filename}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '600' }}>Fatiado</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
           <button onClick={onClose} style={{

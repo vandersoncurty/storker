@@ -5,7 +5,10 @@ import json
 from pathlib import Path
 
 from ..config import DATA_DIR
-from ..schemas import Settings, SettingsMoonraker, SettingsSpoolman, SettingsThingiverse
+from ..schemas import (
+    Settings, SettingsMoonraker, SettingsSpoolman,
+    SettingsThingiverse, SettingsStore, SettingsPrinters,
+)
 
 SETTINGS_DIR = DATA_DIR / "config"
 SETTINGS_FILE = SETTINGS_DIR / "storker.conf"
@@ -59,6 +62,15 @@ def load_settings() -> Settings:
             sync_interval=parser.getint("thingiverse", "sync_interval", fallback=0),
             app_token=parser.get("thingiverse", "app_token", fallback=""),
         ),
+        store=SettingsStore(
+            name=parser.get("store", "name", fallback="Minha Loja 3D"),
+            currency=parser.get("store", "currency", fallback="BRL"),
+            tax_rate=parser.getfloat("store", "tax_rate", fallback=0.0),
+            markup_percentage=parser.getfloat("store", "markup_percentage", fallback=30.0),
+        ),
+        printers=SettingsPrinters(
+            default_server=parser.get("printers", "default_server", fallback="http://localhost:7125"),
+        ),
     )
 
 
@@ -72,6 +84,15 @@ def save_settings(settings: Settings) -> None:
         "download_dir": settings.thingiverse.download_dir,
         "sync_interval": str(settings.thingiverse.sync_interval),
         "app_token": settings.thingiverse.app_token,
+    }
+    parser["store"] = {
+        "name": settings.store.name,
+        "currency": settings.store.currency,
+        "tax_rate": str(settings.store.tax_rate),
+        "markup_percentage": str(settings.store.markup_percentage),
+    }
+    parser["printers"] = {
+        "default_server": settings.printers.default_server,
     }
 
     with open(SETTINGS_FILE, "w") as f:

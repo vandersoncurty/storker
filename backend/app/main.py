@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,7 +11,20 @@ from .routers import products, orders, settings, thingiverse, stl_projects, dash
 
 check_and_migrate()
 
+background_tasks = set()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from .services.sync_scheduler import run_scheduled_sync
+    task = asyncio.create_task(run_scheduled_sync())
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Storker",
     description=(
         "Storker - A 3D print Store Manager.\n\n"

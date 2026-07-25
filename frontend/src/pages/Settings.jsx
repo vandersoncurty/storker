@@ -111,8 +111,12 @@ export default function Settings() {
           {activeCategory === 'thingiverse' && (
             <ThingiverseTab data={settings?.thingiverse} onChange={(field, v) => handleChange('thingiverse', field, v)} />
           )}
-          {activeCategory === 'store' && <StoreTab />}
-          {activeCategory === 'printers' && <PrintersTab />}
+          {activeCategory === 'store' && (
+            <StoreTab data={settings?.store} onChange={(field, v) => handleChange('store', field, v)} />
+          )}
+          {activeCategory === 'printers' && (
+            <PrintersTab data={settings?.printers} onChange={(field, v) => handleChange('printers', field, v)} />
+          )}
 
           <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={handleSave} disabled={saving} style={{
@@ -389,20 +393,60 @@ function ThingiverseTab({ data, onChange }) {
   );
 }
 
-function StoreTab() {
+function StoreTab({ data, onChange }) {
   return (
     <div>
       <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Loja</h2>
-      <p style={{ color: 'var(--text)' }}>Em breve: configurações da loja (Shopee, etc).</p>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
+        Configure os dados da sua loja.
+      </p>
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
+        <Field
+          label="Nome da Loja"
+          value={data?.name || 'Minha Loja 3D'}
+          onChange={(v) => onChange('name', v)}
+          placeholder="Minha Loja 3D"
+        />
+        <Field
+          label="Moeda"
+          value={data?.currency || 'BRL'}
+          onChange={(v) => onChange('currency', v)}
+          placeholder="BRL"
+        />
+        <Field
+          label="Taxa de imposto (%)"
+          type="number"
+          value={data?.tax_rate ?? 0}
+          onChange={(v) => onChange('tax_rate', parseFloat(v) || 0)}
+          placeholder="0"
+        />
+        <Field
+          label="Margem de lucro padrão (%)"
+          type="number"
+          value={data?.markup_percentage ?? 30}
+          onChange={(v) => onChange('markup_percentage', parseFloat(v) || 0)}
+          placeholder="30"
+        />
+      </div>
     </div>
   );
 }
 
-function PrintersTab() {
+function PrintersTab({ data, onChange }) {
   return (
     <div>
       <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Impressoras</h2>
-      <p style={{ color: 'var(--text)' }}>Em breve: gerenciamento de impressoras.</p>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
+        Configure a impressora padrão. Futuramente será possível gerenciar múltiplas impressoras.
+      </p>
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
+        <Field
+          label="Servidor Moonraker"
+          value={data?.default_server || 'http://localhost:7125'}
+          onChange={(v) => onChange('default_server', v)}
+          placeholder="http://localhost:7125"
+        />
+      </div>
     </div>
   );
 }

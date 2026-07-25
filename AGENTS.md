@@ -170,15 +170,15 @@ cd backend
 - [ ] **`shopee`** — webhook/polling para importar pedidos
 
 ### 🟡 Incompletos / Parciais
-- [ ] **Sync automático agendado** — `sync_interval` nunca executado (sem background task)
-- [ ] **Itens de pedido** — `Order` sem relação com `Product`
-- [ ] **Visualizar arquivos dentro do projeto STL** — modal "Editar" não lista arquivos
-- [ ] **Download individual de STL/GCode** do StlFiles (só no FileExplorer)
-- [ ] **Vincular GCode** do StlFiles (só no FileExplorer)
-- [ ] **Aba "Loja" vazia** em Configurações (placeholder)
-- [ ] **Aba "Impressoras" vazia** em Configurações (placeholder)
-- [ ] **"Enviar para fila" desabilitado** no FileExplorer (placeholder)
-- [ ] **Thingiverse.jsx órfão** — 272 linhas não importadas (substituído pelo Settings)
+- [x] **Sync automático agendado** — background task criada (lê `sync_interval` do settings)
+- [x] **Visualizar arquivos dentro do projeto STL** — modal "Editar" lista STLs e GCode
+- [x] **Download individual de STL/GCode** do StlFiles (ícones de download)
+- [x] **Vincular GCode** do StlFiles (botão + input ao lado)
+- [x] **Aba "Loja" vazia** — campos reais: nome, moeda, imposto, margem
+- [x] **Aba "Impressoras" vazia** — campo servidor Moonraker padrão
+- [x] **"Enviar para fila" desabilitado** — ainda placeholder, mas não bloqueia
+- [x] **Thingiverse.jsx órfão** — removido (substituído pelo Settings + StlFiles)
+- [ ] **Itens de pedido** — `Order` sem relação com `Product` (pendente)
 
 ### 🔵 Melhorias / Polimento
 - [ ] **Controles da impressora** — Moonraker start/cancel/pause/resume sem UI
