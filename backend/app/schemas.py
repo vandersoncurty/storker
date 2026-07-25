@@ -134,3 +134,36 @@ class SyncResponse(BaseModel):
     total_downloaded: int
     total_skipped: int
     total_failed: int
+
+
+class StlFileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    filename: str
+    file_path: str
+    file_type: str
+    is_sliced: bool
+    created_at: datetime
+
+
+class StlProjectResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    path: str
+    source: str
+    info_pending: bool
+    title: Optional[str] = None
+    description: Optional[str] = None
+    thing_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    files: list[StlFileResponse] = []
+
+
+class StlProjectUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None

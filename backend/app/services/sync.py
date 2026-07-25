@@ -6,7 +6,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from ..config import THINGIVERSE_MODELS_DIR, PRODUCT_IMAGES_DIR
-from ..models import Product, ProductImage, ThingiverseCollectionConfig, ThingiverseSync
+from ..models import Product, ProductImage, ThingiverseCollectionConfig, ThingiverseSync, StlProject, StlFile
 from ..schemas import SyncResult
 from . import thingiverse
 from .settings_file import load_settings
@@ -129,6 +129,29 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     )
                     db.add(product)
                 db.flush()
+
+                existing_stl_project = db.query(StlProject).filter(StlProject.thing_id == thing_id).first()
+                if not existing_stl_project:
+                    stl_proj = StlProject(
+                        name=safe_name,
+                        path=str(thing_dir),
+                        source="thingiverse",
+                        info_pending=False,
+                        title=thing_name,
+                        description=description,
+                        thing_id=thing_id,
+                    )
+                    db.add(stl_proj)
+                    db.flush()
+                    for stl in stl_files:
+                        stl_path = thing_dir / stl["name"]
+                        if stl_path.exists():
+                            db.add(StlFile(
+                                project_id=stl_proj.id,
+                                filename=stl["name"],
+                                file_path=str(stl_path),
+                                file_type="stl",
+                            ))
 
                 try:
                     tv_images = await thingiverse.get_thing_images(thing_id)

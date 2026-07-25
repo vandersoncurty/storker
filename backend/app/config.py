@@ -27,6 +27,8 @@ THINGIVERSE_BASE_URL = "https://api.thingiverse.com"
 DATA_DIR = BASE_DIR / "data"
 THINGIVERSE_MODELS_DIR = DATA_DIR / "thingiverse_models"
 PRODUCT_IMAGES_DIR = DATA_DIR / "product_images"
+UPLOADED_MODELS_DIR = DATA_DIR / "uploaded_models"
+GCODES_DIR = DATA_DIR / "gcodes"
 
 # CORS
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")

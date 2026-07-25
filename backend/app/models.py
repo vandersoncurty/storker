@@ -1,9 +1,48 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Enum
 from sqlalchemy.orm import relationship
+import enum
 
 from .database import Base
+
+
+class FileType(str, enum.Enum):
+    STL = "stl"
+    GCODE = "gcode"
+
+
+class StlProject(Base):
+    """Projeto de modelo STL (Thingiverse sync ou upload manual)."""
+    __tablename__ = "stl_projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    path = Column(String)
+    source = Column(String, default="upload")  # "thingiverse" ou "upload"
+    info_pending = Column(Boolean, default=True)
+    title = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    thing_id = Column(Integer, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    files = relationship("StlFile", back_populates="project", cascade="all, delete-orphan")
+
+
+class StlFile(Base):
+    """Arquivo STL ou GCode dentro de um projeto."""
+    __tablename__ = "stl_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("stl_projects.id"), nullable=False)
+    filename = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    file_type = Column(String, default="stl")  # "stl" ou "gcode"
+    is_sliced = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    project = relationship("StlProject", back_populates="files")
 
 
 class Product(Base):
