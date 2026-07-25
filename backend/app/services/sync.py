@@ -84,6 +84,34 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
 
             existing = sync_records.get(thing_id)
             if existing and existing.status == "DOWNLOADED" and _files_exist(existing.local_path):
+                existing_stl_project = db.query(StlProject).filter(StlProject.thing_id == thing_id).first()
+                if existing_stl_project:
+                    skipped += 1
+                    continue
+                safe_name = thing_name.replace(" ", "_").replace("/", "-")[:100]
+                thing_dir = Path(existing.local_path)
+                if not thing_dir.exists():
+                    skipped += 1
+                    continue
+                stl_proj = StlProject(
+                    name=safe_name,
+                    path=str(thing_dir),
+                    source="thingiverse",
+                    info_pending=False,
+                    title=thing_name,
+                    description="",
+                    thing_id=thing_id,
+                )
+                db.add(stl_proj)
+                db.flush()
+                for stl_path in thing_dir.glob("*.stl"):
+                    db.add(StlFile(
+                        project_id=stl_proj.id,
+                        filename=stl_path.name,
+                        file_path=str(stl_path),
+                        file_type="stl",
+                    ))
+                db.commit()
                 skipped += 1
                 continue
 
