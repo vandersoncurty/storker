@@ -90,8 +90,8 @@ export default function Thingiverse() {
     return (
       <div>
         <h1>Thingiverse</h1>
-        <p style={{ color: '#ef4444', marginTop: '12px' }}>{error}</p>
-        <button onClick={loadData} style={{ marginTop: '8px', padding: '8px 16px', cursor: 'pointer' }}>
+        <p style={{ color: 'var(--danger)', marginTop: '8px' }}>{error}</p>
+        <button onClick={loadData} style={{ marginTop: '12px', padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer' }}>
           Tentar novamente
         </button>
       </div>
@@ -101,16 +101,25 @@ export default function Thingiverse() {
   return (
     <div>
       <h1>Thingiverse</h1>
+      <p style={{ color: 'var(--text)', marginBottom: '24px' }}>Sincronize coleções do Thingiverse</p>
 
       {actionMessage && (
-        <p style={{ color: actionMessage.type === 'success' ? '#22c55e' : '#ef4444', marginBottom: '12px' }}>
+        <div style={{
+          padding: '10px 16px', borderRadius: 'var(--radius-sm)',
+          background: actionMessage.type === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+          color: actionMessage.type === 'success' ? 'var(--success)' : 'var(--danger)',
+          marginBottom: '16px', fontSize: '14px', fontWeight: '500',
+        }}>
           {actionMessage.text}
-        </p>
+        </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '20px' }}>
-        <div>
-          <h2>Coleções para Sync</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+          <h2 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+            Coleções
+          </h2>
           <form onSubmit={handleAddCollection} style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
             <input
               type="number"
@@ -118,31 +127,41 @@ export default function Thingiverse() {
               value={newCollectionId}
               onChange={e => setNewCollectionId(e.target.value)}
               required
-              style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}
+              style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px' }}
             />
             <input
               placeholder="Nome (opcional)"
               value={newCollectionName}
               onChange={e => setNewCollectionName(e.target.value)}
-              style={{ flex: 2, padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}
+              style={{ flex: 2, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px' }}
             />
-            <button type="submit" style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}>
+            <button type="submit" style={{
+              padding: '8px 16px', borderRadius: 'var(--radius-sm)',
+              border: 'none', background: 'var(--accent)', color: '#fff',
+              cursor: 'pointer', fontWeight: '500', fontSize: '14px',
+            }}>
               Adicionar
             </button>
           </form>
 
           {collections.length === 0 ? (
-            <p style={{ color: 'var(--text)' }}>Nenhuma collection configurada.</p>
+            <p style={{ color: 'var(--text)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
+              Nenhuma collection configurada.
+            </p>
           ) : (
-            <ul style={{ listStyle: 'none', padding: 0 }}>
+            <div style={{ display: 'grid', gap: '4px' }}>
               {collections.map(c => (
-                <li key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', borderBottom: '1px solid var(--border)' }}>
+                <div key={c.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-muted)',
+                }}>
                   <div>
-                    <strong>{c.name}</strong>
-                    <span style={{ color: 'var(--text)', marginLeft: '8px' }}>ID: {c.collection_id}</span>
+                    <strong style={{ fontSize: '14px', color: 'var(--text-h)' }}>{c.name}</strong>
+                    <span style={{ color: 'var(--text)', marginLeft: '8px', fontSize: '12px' }}>ID: {c.collection_id}</span>
                     {c.last_synced_at && (
                       <span style={{ color: 'var(--text)', marginLeft: '8px', fontSize: '12px' }}>
-                        Sync: {new Date(c.last_synced_at).toLocaleDateString()}
+                        • Sync: {new Date(c.last_synced_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
@@ -150,75 +169,101 @@ export default function Thingiverse() {
                     onClick={() => handleRemoveCollection(c.collection_id)}
                     title="Remover collection"
                     style={{
-                      background: 'none',
-                      border: '1px solid #ef4444',
-                      color: '#ef4444',
-                      cursor: 'pointer',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                    }}
-                  >
-                    Remover
+                      background: 'none', border: 'none', color: 'var(--danger)',
+                      cursor: 'pointer', padding: '4px', borderRadius: '4px',
+                      fontSize: '12px', fontWeight: '600',
+                    }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    </svg>
                   </button>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
 
-        <div>
-          <h2>Sincronizar</h2>
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+          <h2 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+            Sincronizar
+          </h2>
           <button onClick={handleSync} disabled={syncing || collections.length === 0} style={{
-            padding: '10px 24px',
-            borderRadius: '6px',
-            border: 'none',
-            background: syncing ? '#666' : 'var(--accent)',
-            color: '#fff',
-            cursor: syncing ? 'not-allowed' : 'pointer',
-            fontWeight: '600',
+            padding: '10px 20px', borderRadius: 'var(--radius-sm)',
+            border: 'none', background: syncing || collections.length === 0 ? 'var(--border-h)' : 'var(--accent)',
+            color: '#fff', cursor: syncing || collections.length === 0 ? 'not-allowed' : 'pointer',
+            fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px',
+            transition: 'all 0.15s',
           }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
             {syncing ? 'Sincronizando...' : 'Sincronizar Agora'}
           </button>
 
           {syncResult && (
-            <div style={{ marginTop: '16px', padding: '12px', borderRadius: '6px', background: 'var(--accent-bg)' }}>
-              <p><strong>Resultado:</strong></p>
-              <p>Novos baixados: {syncResult.total_downloaded}</p>
-              <p>Já existentes: {syncResult.total_skipped}</p>
-              <p>Falhas: {syncResult.total_failed}</p>
+            <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              {[
+                { label: 'Novos', value: syncResult.total_downloaded, color: 'var(--success)' },
+                { label: 'Existentes', value: syncResult.total_skipped, color: 'var(--warning)' },
+                { label: 'Falhas', value: syncResult.total_failed, color: 'var(--danger)' },
+              ].map(s => (
+                <div key={s.label} style={{
+                  padding: '12px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-muted)', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '24px', fontWeight: '700', color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text)', marginTop: '2px' }}>{s.label}</div>
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ marginTop: '24px' }}>
-        <h2>Downloads Recentes</h2>
+      <div style={{ marginTop: '24px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Downloads Recentes
+          </h2>
+        </div>
         {downloads.length === 0 ? (
-          <p style={{ color: 'var(--text)' }}>Nenhum download realizado.</p>
+          <p style={{ color: 'var(--text)', fontSize: '14px', textAlign: 'center', padding: '32px' }}>
+            Nenhum download realizado.
+          </p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '12px' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                <th style={{ padding: '8px' }}>Nome</th>
-                <th style={{ padding: '8px' }}>Thing ID</th>
-                <th style={{ padding: '8px' }}>Status</th>
-                <th style={{ padding: '8px' }}>Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              {downloads.slice(0, 20).map(d => (
-                <tr key={d.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '8px' }}>{d.thing_name}</td>
-                  <td style={{ padding: '8px' }}>{d.thing_id}</td>
-                  <td style={{ padding: '8px', color: d.status === 'DOWNLOADED' ? '#22c55e' : '#ef4444' }}>
-                    {d.status}
-                  </td>
-                  <td style={{ padding: '8px' }}>{new Date(d.synced_at).toLocaleDateString()}</td>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text)', fontWeight: '500', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text)', fontWeight: '500', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ID</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text)', fontWeight: '500', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text)', fontWeight: '500', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {downloads.slice(0, 20).map(d => (
+                  <tr key={d.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-h)', fontWeight: '500' }}>{d.thing_name}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text)' }}>{d.thing_id}</td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600',
+                        background: d.status === 'DOWNLOADED' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                        color: d.status === 'DOWNLOADED' ? 'var(--success)' : 'var(--danger)',
+                      }}>
+                        {d.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text)' }}>{new Date(d.synced_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

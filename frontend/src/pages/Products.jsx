@@ -28,8 +28,8 @@ export default function Products() {
     return (
       <div>
         <h1>Produtos</h1>
-        <p style={{ color: '#ef4444', marginTop: '12px' }}>{error}</p>
-        <button onClick={loadProducts} style={{ marginTop: '8px', padding: '8px 16px', cursor: 'pointer' }}>
+        <p style={{ color: 'var(--danger)', marginTop: '8px' }}>{error}</p>
+        <button onClick={loadProducts} className="btn btn-secondary" style={{ marginTop: '12px' }}>
           Tentar novamente
         </button>
       </div>
@@ -39,14 +39,19 @@ export default function Products() {
   return (
     <div>
       <h1>Produtos</h1>
+      <p style={{ color: 'var(--text)', marginBottom: '24px' }}>{products.length} produto(s) no catálogo</p>
       {products.length === 0 ? (
-        <p style={{ color: 'var(--text)', marginTop: '12px' }}>
+        <p style={{ color: 'var(--text)', padding: '40px 0', textAlign: 'center' }}>
           Nenhum produto. Sincronize coleções no Thingiverse para importar modelos.
         </p>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginTop: '20px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '16px',
+        }}>
           {products.map(p => (
-            <ProductCard key={p.id} product={p} onRefresh={loadProducts} onEdit={setEditing} />
+            <ProductCard key={p.id} product={p} onEdit={setEditing} />
           ))}
         </div>
       )}
@@ -55,76 +60,89 @@ export default function Products() {
   );
 }
 
+const ThingiverseIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3-13.5c0 .83-.67 1.5-1.5 1.5S12 7.33 12 6.5 12.67 5 13.5 5 15 5.67 15 6.5zM12 9c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+  </svg>
+);
+
 function ProductCard({ product, onEdit }) {
   const primaryImage = product.images.find(i => i.is_primary);
-  const thingiverseImage = product.images.find(i => i.source === 'thingiverse');
 
   const imageUrl = primaryImage
-    ? `http://localhost:8000/images/products/${primaryImage.file_path.split('/').pop()}`
+    ? `${API_URL}/images/products/${primaryImage.file_path.split('/').pop()}`
     : null;
 
   return (
     <div style={{
+      background: 'var(--bg)',
       border: '1px solid var(--border)',
-      borderRadius: '8px',
+      borderRadius: 'var(--radius-lg)',
       overflow: 'hidden',
       cursor: 'pointer',
-      transition: 'box-shadow 0.2s',
+      transition: 'all 0.2s',
+      boxShadow: 'var(--shadow-sm)',
     }}
       onClick={() => onEdit(product)}
-      onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow)'}
-      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+        e.currentTarget.style.borderColor = 'var(--accent-border)';
+        e.currentTarget.style.transform = 'translateY(-2px)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+        e.currentTarget.style.borderColor = 'var(--border)';
+        e.currentTarget.style.transform = 'none';
+      }}
     >
-      <div style={{ height: '180px', background: 'var(--code-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      <div style={{
+        height: '200px', background: 'var(--code-bg)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative', overflow: 'hidden',
+      }}>
         {imageUrl ? (
-          <img src={imageUrl} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={imageUrl} alt={product.title}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <span style={{ color: 'var(--text)', fontSize: '14px' }}>Sem imagem</span>
-        )}
-
-        {thingiverseImage && (
-          <span style={{
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            background: '#1a73e8',
-            color: '#fff',
-            fontSize: '11px',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            fontWeight: '600',
-          }}>
-            Thingiverse
-          </span>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--border-h)" strokeWidth="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
         )}
 
         {!product.is_sliced && (
           <span style={{
-            position: 'absolute',
-            top: '8px',
-            left: '8px',
-            background: '#ef4444',
-            color: '#fff',
-            fontSize: '11px',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            fontWeight: '600',
+            position: 'absolute', top: '8px', left: '8px',
+            background: 'var(--danger)', color: '#fff',
+            fontSize: '11px', fontWeight: '600',
+            padding: '2px 8px', borderRadius: '4px',
           }}>
             Não fatiado
           </span>
         )}
       </div>
 
-      <div style={{ padding: '12px' }}>
-        <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--text-h)' }}>{product.title}</h3>
-        {product.description && (
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {product.description}
-          </p>
-        )}
-        <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '13px', color: 'var(--text)' }}>
-          {product.filament_grams && <span>{product.filament_grams}g</span>}
-          {product.sale_price && <span>R$ {product.sale_price}</span>}
+      <div style={{ padding: '16px' }}>
+        <h3 style={{
+          margin: 0, fontSize: '15px', fontWeight: '600',
+          color: 'var(--text-h)', lineHeight: '1.3',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{product.title}</h3>
+
+        <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '13px', color: 'var(--text)' }}>
+          {product.filament_grams && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              {product.filament_grams}g
+            </span>
+          )}
+          {product.sale_price && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: 'var(--success)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+              R$ {product.sale_price}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -208,105 +226,161 @@ function EditModal({ product, onClose, onRefresh }) {
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+      padding: '16px',
     }} onClick={onClose}>
       <div style={{
-        background: 'var(--bg)', borderRadius: '12px', padding: '24px',
-        width: '90vw', maxWidth: '720px', maxHeight: '85vh', overflow: 'auto',
+        background: 'var(--bg)', borderRadius: 'var(--radius-lg)',
+        padding: '0', width: '90vw', maxWidth: '720px', maxHeight: '85vh',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: 'var(--shadow-lg)',
       }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0 }}>Editar Produto</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--text)' }}>X</button>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '20px 24px', borderBottom: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: 0, fontSize: '18px' }}>Editar Produto</h2>
+          <button onClick={onClose} style={{
+            background: 'var(--bg-muted)', border: 'none',
+            width: '32px', height: '32px', borderRadius: 'var(--radius-sm)',
+            cursor: 'pointer', color: 'var(--text)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', fontSize: '18px',
+            transition: 'all 0.15s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--border)'; e.currentTarget.style.color = 'var(--text-h)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-muted)'; e.currentTarget.style.color = 'var(--text)'; }}>
+            ✕
+          </button>
         </div>
 
-        <div style={{ display: 'grid', gap: '14px' }}>
+        <div style={{ padding: '24px', overflow: 'auto', display: 'grid', gap: '20px' }}>
           <Field label="Título" value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} />
-          <label style={{ display: 'grid', gap: '4px' }}>
-            <span style={{ fontSize: '14px', fontWeight: '500' }}>Descrição</span>
+          <label style={{ display: 'grid', gap: '6px' }}>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-h)' }}>Descrição</span>
             <textarea
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              rows={5}
-              style={{ padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '14px', resize: 'vertical', minHeight: '80px' }}
+              rows={4}
+              style={{
+                padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)', fontSize: '14px',
+                resize: 'vertical', minHeight: '80px', lineHeight: '1.5',
+              }}
             />
           </label>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Field label="Peso filamento (g)" type="number" value={form.filament_grams} onChange={v => setForm(f => ({ ...f, filament_grams: v }))} />
             <Field label="Tempo impressão (s)" type="number" value={form.print_time_seconds} onChange={v => setForm(f => ({ ...f, print_time_seconds: v }))} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
             <Field label="Custo produção (R$)" type="number" value={form.production_cost} onChange={v => setForm(f => ({ ...f, production_cost: v }))} />
             <Field label="Preço venda (R$)" type="number" value={form.sale_price} onChange={v => setForm(f => ({ ...f, sale_price: v }))} />
             <Field label="Impostos/taxas (R$)" type="number" value={form.taxes_fees} onChange={v => setForm(f => ({ ...f, taxes_fees: v }))} />
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '12px', borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-muted)', cursor: 'pointer', fontSize: '14px',
+          }}>
             <input
               type="checkbox"
               checked={form.is_sliced}
               onChange={e => setForm(f => ({ ...f, is_sliced: e.target.checked }))}
+              style={{ accentColor: 'var(--accent)' }}
             />
-            Modelo fatiado (pronto pra imprimir)
+            <span>Modelo fatiado (pronto pra imprimir)</span>
           </label>
-        </div>
 
-        <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <h3 style={{ margin: 0, fontSize: '15px' }}>Imagens</h3>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text)' }}>{product.images.length} imagem(ns)</span>
-              <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
-                padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)',
-                background: 'var(--bg)', cursor: uploading ? 'not-allowed' : 'pointer', fontSize: '13px',
-              }}>
-                {uploading ? 'Enviando...' : 'Enviar imagem'}
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                Imagens
+              </h3>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text)' }}>{product.images.length} imagem(ns)</span>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  style={{
+                    padding: '6px 12px', borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border)', background: 'var(--bg)',
+                    cursor: uploading ? 'not-allowed' : 'pointer', fontSize: '13px',
+                    color: 'var(--text-h)', fontWeight: '500',
+                    transition: 'all 0.15s',
+                  }}>
+                  {uploading ? 'Enviando...' : 'Enviar imagem'}
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
+              </div>
             </div>
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
-            {product.images.map(img => {
-              const imgSrc = `http://localhost:8000/images/products/${img.file_path.split('/').pop()}`;
-              return (
-                <div key={img.id} style={{
-                  aspectRatio: '1', borderRadius: '6px', overflow: 'hidden',
-                  border: img.is_primary ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  position: 'relative', cursor: 'pointer',
-                }} onClick={() => handleSetPrimary(img.id)}>
-                  <img src={imgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  {img.source === 'thingiverse' && (
-                    <span style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0,
-                      background: '#1a73e8', color: '#fff', fontSize: '9px',
-                      textAlign: 'center', padding: '1px 0',
-                    }}>TV</span>
-                  )}
-                  {img.is_primary && (
-                    <span style={{
-                      position: 'absolute', top: 0, left: 0, right: 0,
-                      background: 'var(--accent)', color: '#fff', fontSize: '9px',
-                      textAlign: 'center', padding: '1px 0',
-                    }}>Principal</span>
-                  )}
-                </div>
-              );
-            })}
+            {product.images.length === 0 ? (
+              <p style={{ color: 'var(--text)', fontSize: '13px', padding: '16px 0', textAlign: 'center' }}>
+                Nenhuma imagem. Clique em "Enviar imagem" para adicionar.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
+                {product.images.map(img => {
+                  const imgSrc = `${API_URL}/images/products/${img.file_path.split('/').pop()}`;
+                  return (
+                    <div key={img.id} style={{
+                      aspectRatio: '1', borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+                      border: img.is_primary ? '2px solid var(--accent)' : '1px solid var(--border)',
+                      position: 'relative', cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                      onClick={() => handleSetPrimary(img.id)}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-border)'; }}
+                      onMouseLeave={e => { if (!img.is_primary) e.currentTarget.style.borderColor = 'var(--border)'; }}>
+                      <img src={imgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      {img.source === 'thingiverse' && (
+                        <span style={{
+                          position: 'absolute', top: '3px', left: '3px',
+                          color: '#2596be', opacity: '0.85',
+                          display: 'flex',
+                        }}>
+                          <ThingiverseIcon size={14} />
+                        </span>
+                      )}
+                      {img.is_primary && (
+                        <span style={{
+                          position: 'absolute', bottom: 0, left: 0, right: 0,
+                          background: 'var(--accent)', color: '#fff',
+                          fontSize: '9px', textAlign: 'center', padding: '2px 0',
+                          fontWeight: '600',
+                        }}>Principal</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <p style={{ fontSize: '12px', color: 'var(--text)', marginTop: '6px' }}>
-            Clique para definir como imagem principal. Imagens do Thingiverse tem selo "TV".
-          </p>
         </div>
 
-        <div style={{ marginTop: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{
+          display: 'flex', gap: '12px', alignItems: 'center',
+          padding: '16px 24px', borderTop: '1px solid var(--border)',
+          justifyContent: 'space-between',
+        }}>
+          <div>
+            {message && (
+              <span style={{ color: messageType === 'success' ? 'var(--success)' : 'var(--danger)', fontSize: '14px', fontWeight: '500' }}>
+                {message}
+              </span>
+            )}
+          </div>
           <button onClick={handleSave} disabled={saving} style={{
-            padding: '10px 24px', borderRadius: '6px', border: 'none',
-            background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: '600',
+            padding: '10px 24px', borderRadius: 'var(--radius-sm)', border: 'none',
+            background: saving ? 'var(--border-h)' : 'var(--accent)',
+            color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
+            fontWeight: '600', fontSize: '14px', transition: 'all 0.15s',
           }}>
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
-          {message && <span style={{ color: messageType === 'success' ? '#22c55e' : '#ef4444' }}>{message}</span>}
         </div>
       </div>
     </div>
@@ -315,16 +389,19 @@ function EditModal({ product, onClose, onRefresh }) {
 
 function Field({ label, value, onChange, type = 'text' }) {
   return (
-    <label style={{ display: 'grid', gap: '4px' }}>
-      <span style={{ fontSize: '14px', fontWeight: '500' }}>{label}</span>
+    <label style={{ display: 'grid', gap: '6px' }}>
+      <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-h)' }}>{label}</span>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         style={{
-          padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border)',
-          fontSize: '14px',
+          padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)',
+          fontSize: '14px', transition: 'border-color 0.15s',
         }}
+        onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.outline = 'none'; }}
+        onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
       />
     </label>
   );

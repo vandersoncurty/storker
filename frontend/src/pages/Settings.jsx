@@ -62,34 +62,49 @@ export default function Settings() {
   return (
     <div>
       <h1>Configurações</h1>
+      <p style={{ color: 'var(--text)', marginBottom: '24px' }}>Gerencie as configurações do sistema</p>
 
-      <div style={{ display: 'flex', gap: '24px', marginTop: '20px' }}>
-        <nav style={{ minWidth: '160px' }}>
-          {categories.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              style={{
-                display: 'block',
-                width: '100%',
-                padding: '10px 16px',
-                marginBottom: '4px',
-                textAlign: 'left',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                background: activeCategory === cat.id ? 'var(--accent-bg)' : 'transparent',
-                color: activeCategory === cat.id ? 'var(--accent)' : 'var(--text)',
-                fontWeight: activeCategory === cat.id ? '600' : '400',
-                fontSize: '14px',
-              }}
-            >
-              {cat.label}
-            </button>
-          ))}
+      {message && (
+        <div style={{
+          padding: '10px 16px', borderRadius: 'var(--radius-sm)',
+          background: messageType === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+          color: messageType === 'success' ? 'var(--success)' : 'var(--danger)',
+          marginBottom: '16px', fontSize: '14px', fontWeight: '500',
+        }}>
+          {message}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '24px' }}>
+        <nav style={{ minWidth: '200px' }}>
+          <div style={{
+            background: 'var(--bg)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+          }}>
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                style={{
+                  display: 'block', width: '100%', padding: '12px 16px',
+                  border: 'none', borderBottom: '1px solid var(--border)',
+                  textAlign: 'left', cursor: 'pointer', fontSize: '14px',
+                  background: activeCategory === cat.id ? 'var(--accent-bg)' : 'var(--bg)',
+                  color: activeCategory === cat.id ? 'var(--accent)' : 'var(--text)',
+                  fontWeight: activeCategory === cat.id ? '600' : '400',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
         </nav>
 
-        <div style={{ flex: 1, borderLeft: '1px solid var(--border)', paddingLeft: '24px' }}>
+        <div style={{
+          flex: 1, background: 'var(--bg)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)', padding: '24px',
+        }}>
           {activeCategory === 'integrations' && (
             <IntegrationsTab data={settings} onChange={handleChange} />
           )}
@@ -98,26 +113,18 @@ export default function Settings() {
           )}
           {activeCategory === 'store' && <StoreTab />}
           {activeCategory === 'printers' && <PrintersTab />}
-        </div>
-      </div>
 
-      <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <button onClick={handleSave} disabled={saving} style={{
-          padding: '10px 24px',
-          cursor: 'pointer',
-          borderRadius: '6px',
-          border: 'none',
-          background: 'var(--accent)',
-          color: '#fff',
-          fontWeight: '600',
-        }}>
-          {saving ? 'Salvando...' : 'Salvar'}
-        </button>
-        {message && (
-          <span style={{ color: messageType === 'success' ? '#22c55e' : '#ef4444' }}>
-            {message}
-          </span>
-        )}
+          <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button onClick={handleSave} disabled={saving} style={{
+              padding: '10px 24px', borderRadius: 'var(--radius-sm)', border: 'none',
+              background: saving ? 'var(--border-h)' : 'var(--accent)',
+              color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
+              fontWeight: '600', fontSize: '14px',
+            }}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -126,8 +133,8 @@ export default function Settings() {
 function IntegrationsTab({ data, onChange }) {
   return (
     <div>
-      <h2>Integrações</h2>
-      <p style={{ color: 'var(--text)', marginBottom: '20px' }}>
+      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Integrações</h2>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
         Configure as URLs dos serviços externos.
       </p>
 
@@ -152,8 +159,8 @@ function IntegrationsTab({ data, onChange }) {
 function ThingiverseTab({ data, onChange }) {
   return (
     <div>
-      <h2>Thingiverse</h2>
-      <p style={{ color: 'var(--text)', marginBottom: '20px' }}>
+      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Thingiverse</h2>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
         Configure sincronização de coleções do Thingiverse.
         Crie uma API key em{' '}
         <a href="https://www.thingiverse.com/apps/create" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
@@ -190,7 +197,7 @@ function ThingiverseTab({ data, onChange }) {
 function StoreTab() {
   return (
     <div>
-      <h2>Loja</h2>
+      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Loja</h2>
       <p style={{ color: 'var(--text)' }}>Em breve: configurações da loja (Shopee, etc).</p>
     </div>
   );
@@ -199,7 +206,7 @@ function StoreTab() {
 function PrintersTab() {
   return (
     <div>
-      <h2>Impressoras</h2>
+      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Impressoras</h2>
       <p style={{ color: 'var(--text)' }}>Em breve: gerenciamento de impressoras.</p>
     </div>
   );
@@ -207,21 +214,19 @@ function PrintersTab() {
 
 function Field({ label, value, onChange, placeholder, type = 'text' }) {
   return (
-    <label style={{ display: 'grid', gap: '4px' }}>
-      <span style={{ fontSize: '14px', fontWeight: '500' }}>{label}</span>
+    <label style={{ display: 'grid', gap: '6px' }}>
+      <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-h)' }}>{label}</span>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
-          padding: '8px 12px',
-          borderRadius: '6px',
-          border: '1px solid var(--border)',
-          background: 'var(--bg)',
-          color: 'var(--text-h)',
-          fontSize: '14px',
+          padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)', fontSize: '14px',
         }}
+        onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.outline = 'none'; }}
+        onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
       />
     </label>
   );
