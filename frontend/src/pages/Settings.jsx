@@ -58,8 +58,8 @@ export default function Settings() {
     <div>
       <h1>Configurações</h1>
 
-      <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
-        <nav style={{ minWidth: '180px' }}>
+      <div style={{ display: 'flex', gap: '24px', marginTop: '20px' }}>
+        <nav style={{ minWidth: '160px' }}>
           {categories.map(cat => (
             <button
               key={cat.id}
@@ -76,6 +76,7 @@ export default function Settings() {
                 background: activeCategory === cat.id ? 'var(--accent-bg)' : 'transparent',
                 color: activeCategory === cat.id ? 'var(--accent)' : 'var(--text)',
                 fontWeight: activeCategory === cat.id ? '600' : '400',
+                fontSize: '14px',
               }}
             >
               {cat.label}
@@ -83,7 +84,7 @@ export default function Settings() {
           ))}
         </nav>
 
-        <div style={{ flex: 1, borderLeft: '1px solid var(--border)', paddingLeft: '20px' }}>
+        <div style={{ flex: 1, borderLeft: '1px solid var(--border)', paddingLeft: '24px' }}>
           {activeCategory === 'integrations' && (
             <IntegrationsTab
               data={settings?.integrations}
