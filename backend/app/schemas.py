@@ -76,16 +76,24 @@ class OrderResponse(OrderBase):
     created_at: datetime
 
 
-class SettingsIntegrations(BaseModel):
-    moonraker_url: str = "http://localhost:7125"
-    spoolman_url: str = "http://localhost:7912"
-    thingiverse_download_dir: str = "data/thingiverse_models"
-    thingiverse_sync_interval: int = 0  # minutos, 0 = desligado
-    thingiverse_app_token: str = ""  # vazio = usar THINGIVERSE_APP_TOKEN do .env
+class SettingsMoonraker(BaseModel):
+    server: str = "http://localhost:7125"
+
+
+class SettingsSpoolman(BaseModel):
+    server: str = "http://localhost:7912"
+
+
+class SettingsThingiverse(BaseModel):
+    download_dir: str = "data/thingiverse_models"
+    sync_interval: int = 0  # minutos, 0 = desligado
+    app_token: str = ""  # vazio = usar THINGIVERSE_APP_TOKEN do .env
 
 
 class Settings(BaseModel):
-    integrations: SettingsIntegrations = SettingsIntegrations()
+    moonraker: SettingsMoonraker = SettingsMoonraker()
+    spoolman: SettingsSpoolman = SettingsSpoolman()
+    thingiverse: SettingsThingiverse = SettingsThingiverse()
 
 
 class ThingiverseCollectionCreate(BaseModel):

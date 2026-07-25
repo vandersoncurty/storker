@@ -1,9 +1,7 @@
 """Router de configurações - leitura e escrita de settings do sistema."""
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter
 
-from ..database import get_db
 from .. import schemas
 from .settings_file import load_settings, save_settings
 
@@ -23,10 +21,28 @@ def update_settings(payload: schemas.Settings):
     return payload
 
 
-@router.patch("/integrations", response_model=schemas.SettingsIntegrations)
-def update_integrations(payload: schemas.SettingsIntegrations):
-    """Atualiza apenas as configurações de integrações (PATCH parcial)."""
+@router.patch("/moonraker", response_model=schemas.SettingsMoonraker)
+def update_moonraker(payload: schemas.SettingsMoonraker):
+    """Atualiza apenas as configurações do Moonraker."""
     settings = load_settings()
-    settings.integrations = payload
+    settings.moonraker = payload
     save_settings(settings)
-    return settings.integrations
+    return settings.moonraker
+
+
+@router.patch("/spoolman", response_model=schemas.SettingsSpoolman)
+def update_spoolman(payload: schemas.SettingsSpoolman):
+    """Atualiza apenas as configurações do Spoolman."""
+    settings = load_settings()
+    settings.spoolman = payload
+    save_settings(settings)
+    return settings.spoolman
+
+
+@router.patch("/thingiverse", response_model=schemas.SettingsThingiverse)
+def update_thingiverse(payload: schemas.SettingsThingiverse):
+    """Atualiza apenas as configurações do Thingiverse."""
+    settings = load_settings()
+    settings.thingiverse = payload
+    save_settings(settings)
+    return settings.thingiverse

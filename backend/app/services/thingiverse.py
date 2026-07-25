@@ -1,6 +1,6 @@
 """Client API Thingiverse - busca collections, things, detalhes e download de STLs."""
 
-import json
+import configparser
 
 import httpx
 
@@ -11,8 +11,9 @@ def _load_settings_token() -> str:
     """Carrega token das configurações salvas."""
     settings_path = DATA_DIR / "config" / "storker.conf"
     if settings_path.exists():
-        data = json.loads(settings_path.read_text())
-        token = data.get("integrations", {}).get("thingiverse_app_token", "")
+        parser = configparser.ConfigParser()
+        parser.read(settings_path)
+        token = parser.get("thingiverse", "app_token", fallback="")
         if token:
             return token
     return ""

@@ -32,10 +32,10 @@ export default function Settings() {
     }
   };
 
-  const handleChange = (field, value) => {
+  const handleChange = (section, field, value) => {
     setSettings(prev => ({
       ...prev,
-      integrations: { ...prev.integrations, [field]: value }
+      [section]: { ...prev[section], [field]: value }
     }));
   };
 
@@ -87,10 +87,10 @@ export default function Settings() {
 
         <div style={{ flex: 1, borderLeft: '1px solid var(--border)', paddingLeft: '24px' }}>
           {activeCategory === 'integrations' && (
-            <IntegrationsTab data={settings?.integrations} onChange={handleChange} />
+            <IntegrationsTab data={settings} onChange={handleChange} />
           )}
           {activeCategory === 'thingiverse' && (
-            <ThingiverseTab data={settings?.integrations} onChange={handleChange} />
+            <ThingiverseTab data={settings?.thingiverse} onChange={(field, v) => handleChange('thingiverse', field, v)} />
           )}
           {activeCategory === 'store' && <StoreTab />}
           {activeCategory === 'printers' && <PrintersTab />}
@@ -129,15 +129,15 @@ function IntegrationsTab({ data, onChange }) {
 
       <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
         <Field
-          label="Moonraker URL"
-          value={data?.moonraker_url || ''}
-          onChange={(v) => onChange('moonraker_url', v)}
+          label="Moonraker Server"
+          value={data?.moonraker?.server || ''}
+          onChange={(v) => onChange('moonraker', 'server', v)}
           placeholder="http://localhost:7125"
         />
         <Field
-          label="Spoolman URL"
-          value={data?.spoolman_url || ''}
-          onChange={(v) => onChange('spoolman_url', v)}
+          label="Spoolman Server"
+          value={data?.spoolman?.server || ''}
+          onChange={(v) => onChange('spoolman', 'server', v)}
           placeholder="http://localhost:7912"
         />
       </div>
@@ -160,22 +160,22 @@ function ThingiverseTab({ data, onChange }) {
       <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
         <Field
           label="App Token (Thingiverse API Key)"
-          value={data?.thingiverse_app_token || ''}
-          onChange={(v) => onChange('thingiverse_app_token', v)}
+          value={data?.app_token || ''}
+          onChange={(v) => onChange('app_token', v)}
           placeholder="Se vazio, usa THINGIVERSE_APP_TOKEN do .env"
           type="password"
         />
         <Field
           label="Diretório de Download"
-          value={data?.thingiverse_download_dir || ''}
-          onChange={(v) => onChange('thingiverse_download_dir', v)}
+          value={data?.download_dir || ''}
+          onChange={(v) => onChange('download_dir', v)}
           placeholder="data/thingiverse_models"
         />
         <Field
           label="Intervalo de Sync (minutos, 0 = desligado)"
           type="number"
-          value={data?.thingiverse_sync_interval ?? 0}
-          onChange={(v) => onChange('thingiverse_sync_interval', parseInt(v) || 0)}
+          value={data?.sync_interval ?? 0}
+          onChange={(v) => onChange('sync_interval', parseInt(v) || 0)}
           placeholder="0"
         />
       </div>

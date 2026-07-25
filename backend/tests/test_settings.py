@@ -2,33 +2,42 @@ def test_get_settings(client):
     resp = client.get("/settings/")
     assert resp.status_code == 200
     data = resp.json()
-    assert "integrations" in data
-    assert "moonraker_url" in data["integrations"]
-    assert "spoolman_url" in data["integrations"]
-    assert "thingiverse_download_dir" in data["integrations"]
-    assert "thingiverse_sync_interval" in data["integrations"]
+    assert "moonraker" in data
+    assert "spoolman" in data
+    assert "thingiverse" in data
+    assert data["moonraker"]["server"] == "http://localhost:7125"
+    assert data["spoolman"]["server"] == "http://localhost:7912"
+    assert data["thingiverse"]["download_dir"] == "data/thingiverse_models"
+    assert data["thingiverse"]["sync_interval"] == 0
 
 
 def test_update_settings(client):
     payload = {
-        "integrations": {
-            "moonraker_url": "http://192.168.1.100:7125",
-            "spoolman_url": "http://192.168.1.100:7912",
-            "thingiverse_download_dir": "./downloads",
-            "thingiverse_sync_interval": 60,
-        }
+        "moonraker": {"server": "http://192.168.1.100:7125"},
+        "spoolman": {"server": "http://192.168.1.100:7912"},
+        "thingiverse": {"download_dir": "./downloads", "sync_interval": 60, "app_token": ""},
     }
     resp = client.put("/settings/", json=payload)
     assert resp.status_code == 200
-    assert resp.json()["integrations"]["moonraker_url"] == "http://192.168.1.100:7125"
+    assert resp.json()["moonraker"]["server"] == "http://192.168.1.100:7125"
 
     resp2 = client.get("/settings/")
-    assert resp2.json()["integrations"]["thingiverse_download_dir"] == "./downloads"
-    assert resp2.json()["integrations"]["thingiverse_sync_interval"] == 60
+    assert resp2.json()["thingiverse"]["download_dir"] == "./downloads"
+    assert resp2.json()["thingiverse"]["sync_interval"] == 60
 
 
-def test_update_integrations_patch(client):
-    payload = {"moonraker_url": "http://new:7125", "spoolman_url": "http://new:7912"}
-    resp = client.patch("/settings/integrations", json=payload)
+def test_update_moonraker_patch(client):
+    payload = {"server": "http://new:7125"}
+    resp = client.patch("/settings/moonraker", json=payload)
     assert resp.status_code == 200
-    assert resp.json()["moonraker_url"] == "http://new:7125"
+    assert resp.json()["server"] == "http://new:7125"
+
+
+def test_update_thingiverse_patch(client):
+    payload = {"download_dir": "/tmp/models", "sync_interval": 30, "app_token": "abc123"}
+    resp = client.patch("/settings/thingiverse", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["download_dir"] == "/tmp/models"
+    assert data["sync_interval"] == 30
+    assert data["app_token"] == "abc123"
