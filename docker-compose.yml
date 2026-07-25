@@ -13,7 +13,6 @@ services:
     volumes:
       - backend-data:/app/data
       - ./backend/store.db:/app/store.db
-      - ./backend/settings.json:/app/settings.json
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

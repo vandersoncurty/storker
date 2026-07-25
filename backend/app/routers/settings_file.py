@@ -1,11 +1,13 @@
-"""Persistência de configurações em settings.json."""
+"""Persistência de configurações em storker.conf."""
 
 import json
 from pathlib import Path
 
+from ..config import DATA_DIR
 from ..schemas import Settings
 
-SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
+SETTINGS_DIR = DATA_DIR / "config"
+SETTINGS_FILE = SETTINGS_DIR / "storker.conf"
 
 
 def load_settings() -> Settings:
@@ -16,4 +18,5 @@ def load_settings() -> Settings:
 
 
 def save_settings(settings: Settings) -> None:
+    SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
     SETTINGS_FILE.write_text(settings.model_dump_json(indent=2))
