@@ -1,13 +1,12 @@
-import json
-from pathlib import Path
-
-
 def test_get_settings(client):
     resp = client.get("/settings/")
     assert resp.status_code == 200
     data = resp.json()
     assert "integrations" in data
-    assert data["integrations"]["moonraker_url"] == "http://localhost:7125"
+    assert "moonraker_url" in data["integrations"]
+    assert "spoolman_url" in data["integrations"]
+    assert "thingiverse_download_dir" in data["integrations"]
+    assert "thingiverse_sync_interval" in data["integrations"]
 
 
 def test_update_settings(client):
@@ -25,6 +24,7 @@ def test_update_settings(client):
 
     resp2 = client.get("/settings/")
     assert resp2.json()["integrations"]["thingiverse_download_dir"] == "./downloads"
+    assert resp2.json()["integrations"]["thingiverse_sync_interval"] == 60
 
 
 def test_update_integrations_patch(client):

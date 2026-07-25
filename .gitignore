@@ -13,6 +13,12 @@ env/
 *.db
 test.db
 
+# App data
+data/thingiverse_models/
+data/product_images/
+backend/settings.json
+backend/models/
+
 # App settings (user-specific)
 settings.json
 

@@ -162,7 +162,7 @@ function ThingiverseTab({ data, onChange }) {
           label="Diretório de Download"
           value={data?.thingiverse_download_dir || ''}
           onChange={(v) => onChange('thingiverse_download_dir', v)}
-          placeholder="./models"
+          placeholder="data/thingiverse_models"
         />
         <Field
           label="Intervalo de Sync (minutos, 0 = desligado)"

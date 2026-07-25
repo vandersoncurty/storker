@@ -1,4 +1,4 @@
-"""Client API Thingiverse - busca collections, things e download de STLs."""
+"""Client API Thingiverse - busca collections, things, detalhes e download de STLs."""
 
 import httpx
 
@@ -21,11 +21,33 @@ async def get_collection_things(collection_id: int, page: int = 1, per_page: int
         return resp.json()
 
 
+async def get_thing(thing_id: int) -> dict:
+    """Busca detalhes de um thing (nome, descrição, imagens)."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{THINGIVERSE_BASE_URL}/things/{thing_id}",
+            headers=_headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
 async def get_thing_files(thing_id: int) -> list:
     """Lista arquivos de um thing."""
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{THINGIVERSE_BASE_URL}/things/{thing_id}/files",
+            headers=_headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def get_thing_images(thing_id: int) -> list:
+    """Lista imagens de um thing."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{THINGIVERSE_BASE_URL}/things/{thing_id}/images",
             headers=_headers(),
         )
         resp.raise_for_status()

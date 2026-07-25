@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -10,11 +10,36 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    gcode_filename = Column(String)  # Nome do arquivo salvo no Moonraker/Mainsail
-    filament_grams = Column(Float)   # Peso em gramas pra cálculo de custo
-    print_time_seconds = Column(Integer)  # Tempo est. em segundos
-    sale_price = Column(Float)       # Preço na Shopee
+    title = Column(String, index=True)
+    description = Column(Text, default="")
+    thing_id = Column(Integer, unique=True, nullable=True, index=True)
+    thing_url = Column(String, nullable=True)
+    local_path = Column(String, nullable=True)
+    is_sliced = Column(Boolean, default=False)
+    filament_grams = Column(Float, nullable=True)
+    print_time_seconds = Column(Integer, nullable=True)
+    production_cost = Column(Float, nullable=True)
+    sale_price = Column(Float, nullable=True)
+    taxes_fees = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
+
+
+class ProductImage(Base):
+    __tablename__ = "product_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    file_path = Column(String, nullable=False)
+    original_url = Column(String, nullable=True)
+    source = Column(String, default="upload")  # "thingiverse" ou "upload"
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    product = relationship("Product", back_populates="images")
+
 
 class Order(Base):
     __tablename__ = "orders"

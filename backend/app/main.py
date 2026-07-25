@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from .config import CORS_ORIGINS
+from .config import CORS_ORIGINS, PRODUCT_IMAGES_DIR
 from .database import Base, engine
 from .routers import products, orders, settings, thingiverse
 
@@ -16,6 +17,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+PRODUCT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/images/products", StaticFiles(directory=str(PRODUCT_IMAGES_DIR)), name="product_images")
 
 app.include_router(products.router)
 app.include_router(orders.router)

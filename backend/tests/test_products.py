@@ -5,47 +5,63 @@ def test_root(client):
 
 
 def test_create_product(client):
-    payload = {
-        "name": "Teste",
-        "gcode_filename": "teste.gcode",
-        "filament_grams": 50.0,
-        "print_time_seconds": 3600,
-        "sale_price": 25.0,
-    }
+    payload = {"title": "Teste", "description": "Descricao teste"}
     resp = client.post("/products/", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["name"] == "Teste"
-    assert data["id"] is not None
+    assert data["title"] == "Teste"
+    assert data["is_sliced"] is False
+    assert data["images"] == []
 
 
 def test_list_products(client):
-    client.post("/products/", json={
-        "name": "P1", "gcode_filename": "p1.gcode",
-        "filament_grams": 10, "print_time_seconds": 600, "sale_price": 15,
-    })
+    client.post("/products/", json={"title": "P1"})
+    client.post("/products/", json={"title": "P2"})
     resp = client.get("/products/")
     assert resp.status_code == 200
-    assert len(resp.json()) == 1
+    assert len(resp.json()) == 2
 
 
 def test_get_product(client):
-    r = client.post("/products/", json={
-        "name": "P2", "gcode_filename": "p2.gcode",
-        "filament_grams": 20, "print_time_seconds": 1200, "sale_price": 30,
-    })
+    r = client.post("/products/", json={"title": "P3"})
     pid = r.json()["id"]
     resp = client.get(f"/products/{pid}")
     assert resp.status_code == 200
-    assert resp.json()["name"] == "P2"
+    assert resp.json()["title"] == "P3"
+
+
+def test_update_product(client):
+    r = client.post("/products/", json={"title": "Old"})
+    pid = r.json()["id"]
+    resp = client.patch(f"/products/{pid}", json={"title": "New", "is_sliced": True})
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "New"
+    assert resp.json()["is_sliced"] is True
+
+
+def test_update_product_costs(client):
+    r = client.post("/products/", json={"title": "CostTest"})
+    pid = r.json()["id"]
+    resp = client.patch(f"/products/{pid}", json={
+        "sale_price": 25.0,
+        "production_cost": 10.0,
+        "taxes_fees": 3.0,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["sale_price"] == 25.0
+    assert data["production_cost"] == 10.0
+    assert data["taxes_fees"] == 3.0
 
 
 def test_delete_product(client):
-    r = client.post("/products/", json={
-        "name": "DEL", "gcode_filename": "del.gcode",
-        "filament_grams": 5, "print_time_seconds": 300, "sale_price": 10,
-    })
+    r = client.post("/products/", json={"title": "DEL"})
     pid = r.json()["id"]
     resp = client.delete(f"/products/{pid}")
     assert resp.status_code == 200
     assert client.get(f"/products/{pid}").status_code == 404
+
+
+def test_delete_nonexistent_product(client):
+    resp = client.delete("/products/9999")
+    assert resp.status_code == 404

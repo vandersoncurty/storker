@@ -1,24 +1,63 @@
 from datetime import datetime
+from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+
+class ProductImageBase(BaseModel):
+    source: str = "upload"
+    is_primary: bool = False
+
+
+class ProductImageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    file_path: str
+    original_url: Optional[str] = None
+    source: str
+    is_primary: bool
+    created_at: datetime
 
 
 class ProductBase(BaseModel):
-    name: str
-    gcode_filename: str
-    filament_grams: float
-    print_time_seconds: int
-    sale_price: float
+    title: str
+    description: str = ""
 
 
 class ProductCreate(ProductBase):
     pass
 
 
-class ProductResponse(ProductBase):
+class ProductUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    is_sliced: Optional[bool] = None
+    filament_grams: Optional[float] = None
+    print_time_seconds: Optional[int] = None
+    production_cost: Optional[float] = None
+    sale_price: Optional[float] = None
+    taxes_fees: Optional[float] = None
+
+
+class ProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
-    class Config:
-        from_attributes = True
+    title: str
+    description: str
+    thing_id: Optional[int] = None
+    thing_url: Optional[str] = None
+    local_path: Optional[str] = None
+    is_sliced: bool
+    filament_grams: Optional[float] = None
+    print_time_seconds: Optional[int] = None
+    production_cost: Optional[float] = None
+    sale_price: Optional[float] = None
+    taxes_fees: Optional[float] = None
+    images: list[ProductImageResponse] = []
+    created_at: datetime
+    updated_at: datetime
 
 
 class OrderBase(BaseModel):
@@ -30,17 +69,17 @@ class OrderCreate(OrderBase):
 
 
 class OrderResponse(OrderBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     status: str
     created_at: datetime
-    class Config:
-        from_attributes = True
 
 
 class SettingsIntegrations(BaseModel):
     moonraker_url: str = "http://localhost:7125"
     spoolman_url: str = "http://localhost:7912"
-    thingiverse_download_dir: str = "./models"
+    thingiverse_download_dir: str = "data/thingiverse_models"
     thingiverse_sync_interval: int = 0  # minutos, 0 = desligado
 
 
@@ -54,15 +93,17 @@ class ThingiverseCollectionCreate(BaseModel):
 
 
 class ThingiverseCollectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     collection_id: int
     name: str
-    last_synced_at: datetime | None = None
-    class Config:
-        from_attributes = True
+    last_synced_at: Optional[datetime] = None
 
 
 class ThingiverseSyncResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     thing_id: int
     thing_name: str
@@ -70,8 +111,6 @@ class ThingiverseSyncResponse(BaseModel):
     local_path: str
     status: str
     synced_at: datetime
-    class Config:
-        from_attributes = True
 
 
 class SyncResult(BaseModel):

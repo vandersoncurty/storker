@@ -1,4 +1,4 @@
-"""Serviço de sincronização Thingiverse - baixa STLs de collections configuradas."""
+"""Serviço de sincronização Thingiverse - baixa STLs, imagens e cria Products."""
 
 import json
 from datetime import datetime
@@ -6,7 +6,8 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from ..models import ThingiverseCollectionConfig, ThingiverseSync
+from ..config import THINGIVERSE_MODELS_DIR, PRODUCT_IMAGES_DIR
+from ..models import Product, ProductImage, ThingiverseCollectionConfig, ThingiverseSync
 from ..schemas import SyncResult
 from . import thingiverse
 
@@ -21,22 +22,27 @@ def _load_settings() -> dict:
 def _get_download_dir() -> Path:
     settings = _load_settings()
     integrations = settings.get("integrations", {})
-    raw = integrations.get("thingiverse_download_dir", "./models")
+    raw = integrations.get("thingiverse_download_dir", str(THINGIVERSE_MODELS_DIR))
     path = Path(raw)
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parent.parent.parent / raw
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def _get_thing_ids_by_collection(db: Session) -> dict[int, list[int]]:
-    """Retorna thing_ids já baixados, agrupados por collection_id."""
-    rows = db.query(ThingiverseSync.thing_id).all()
-    return {r.thing_id for r in rows}
+def _get_images_dir() -> Path:
+    PRODUCT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    return PRODUCT_IMAGES_DIR
 
 
 async def sync_collection(collection_id: int, db: Session) -> SyncResult:
-    """Sincroniza uma collection: busca things, baixa novos, registra no banco."""
+    """Sincroniza uma collection: busca things, baixa STLs+imagens, cria Products."""
     download_dir = _get_download_dir()
-    existing_ids = _get_thing_ids_by_collection(db)
+    images_dir = _get_images_dir()
+
+    existing_ids = {
+        r.thing_id for r in db.query(ThingiverseSync.thing_id).all()
+    }
 
     page = 1
     downloaded = 0
@@ -58,6 +64,11 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                 continue
 
             try:
+                detail = await thingiverse.get_thing(thing_id)
+                description = detail.get("description", "") or ""
+                if len(description) > 5000:
+                    description = description[:5000]
+
                 files = await thingiverse.get_thing_files(thing_id)
                 stl_files = [f for f in files if f["name"].lower().endswith(".stl")]
 
@@ -65,12 +76,50 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     skipped += 1
                     continue
 
-                thing_dir = download_dir / thing_name.replace(" ", "_").replace("/", "-")
+                safe_name = thing_name.replace(" ", "_").replace("/", "-")[:100]
+                thing_dir = download_dir / safe_name
                 thing_dir.mkdir(parents=True, exist_ok=True)
 
                 for stl in stl_files:
                     content = await thingiverse.download_file(stl["download_url"])
                     (thing_dir / stl["name"]).write_bytes(content)
+
+                product = Product(
+                    title=thing_name,
+                    description=description,
+                    thing_id=thing_id,
+                    thing_url=thing_url,
+                    local_path=str(thing_dir),
+                )
+                db.add(product)
+                db.flush()
+
+                try:
+                    tv_images = await thingiverse.get_thing_images(thing_id)
+                except Exception:
+                    tv_images = []
+
+                for idx, img in enumerate(tv_images):
+                    try:
+                        img_url = img.get("sizes", {}).get("large", {}).get("url") or img.get("url", "")
+                        if not img_url:
+                            continue
+                        img_data = await thingiverse.download_file(img_url)
+                        ext = ".jpg"
+                        img_filename = f"{safe_name}_{idx}{ext}"
+                        img_path = images_dir / img_filename
+                        img_path.write_bytes(img_data)
+
+                        product_image = ProductImage(
+                            product_id=product.id,
+                            file_path=str(img_path),
+                            original_url=img_url,
+                            source="thingiverse",
+                            is_primary=(idx == 0),
+                        )
+                        db.add(product_image)
+                    except Exception:
+                        continue
 
                 sync_record = ThingiverseSync(
                     thing_id=thing_id,
@@ -83,7 +132,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                 existing_ids.add(thing_id)
                 downloaded += 1
 
-            except Exception as e:
+            except Exception:
                 sync_record = ThingiverseSync(
                     thing_id=thing_id,
                     thing_name=thing_name,

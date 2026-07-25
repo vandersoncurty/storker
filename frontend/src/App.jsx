@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Dashboard from './pages/Dashboard';
+import Products from './pages/Products';
 import Thingiverse from './pages/Thingiverse';
 import Settings from './pages/Settings';
 
@@ -20,6 +21,8 @@ function App() {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
+      case 'products':
+        return <Products />;
       case 'thingiverse':
         return <Thingiverse />;
       case 'settings':
