@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Dashboard from './pages/Dashboard';
+import Thingiverse from './pages/Thingiverse';
 import Settings from './pages/Settings';
 
 const menuItems = [
@@ -8,6 +9,7 @@ const menuItems = [
   { id: 'orders', label: 'Pedidos', icon: '🛒' },
   { id: 'printers', label: 'Impressoras', icon: '🖨️' },
   { id: 'filament', label: 'Filamento', icon: '🧵' },
+  { id: 'thingiverse', label: 'Thingiverse', icon: '⬇️' },
   { id: 'settings', label: 'Configurações', icon: '⚙️' },
 ];
 
@@ -18,6 +20,8 @@ function App() {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
+      case 'thingiverse':
+        return <Thingiverse />;
       case 'settings':
         return <Settings />;
       default:

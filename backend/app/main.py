@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import CORS_ORIGINS
 from .database import Base, engine
-from .routers import products, orders, settings
+from .routers import products, orders, settings, thingiverse
 
 Base.metadata.create_all(bind=engine)
 
@@ -20,6 +20,7 @@ app.add_middleware(
 app.include_router(products.router)
 app.include_router(orders.router)
 app.include_router(settings.router)
+app.include_router(thingiverse.router)
 
 
 @app.get("/")

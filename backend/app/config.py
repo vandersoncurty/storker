@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
 
-# Diretório base do projeto
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 # Database
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'store.db'}")
@@ -12,6 +14,10 @@ MOONRAKER_URL = os.getenv("MOONRAKER_URL", "http://localhost:7125")
 
 # Spoolman
 SPOOLMAN_URL = os.getenv("SPOOLMAN_URL", "http://localhost:7912")
+
+# Thingiverse
+THINGIVERSE_APP_TOKEN = os.getenv("THINGIVERSE_APP_TOKEN", "")
+THINGIVERSE_BASE_URL = "https://api.thingiverse.com"
 
 # CORS
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")

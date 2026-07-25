@@ -40,7 +40,49 @@ class OrderResponse(OrderBase):
 class SettingsIntegrations(BaseModel):
     moonraker_url: str = "http://localhost:7125"
     spoolman_url: str = "http://localhost:7912"
+    thingiverse_download_dir: str = "./models"
+    thingiverse_sync_interval: int = 0  # minutos, 0 = desligado
 
 
 class Settings(BaseModel):
     integrations: SettingsIntegrations = SettingsIntegrations()
+
+
+class ThingiverseCollectionCreate(BaseModel):
+    collection_id: int
+    name: str = ""
+
+
+class ThingiverseCollectionResponse(BaseModel):
+    id: int
+    collection_id: int
+    name: str
+    last_synced_at: datetime | None = None
+    class Config:
+        from_attributes = True
+
+
+class ThingiverseSyncResponse(BaseModel):
+    id: int
+    thing_id: int
+    thing_name: str
+    thing_url: str
+    local_path: str
+    status: str
+    synced_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class SyncResult(BaseModel):
+    collection_id: int
+    downloaded: int
+    skipped: int
+    failed: int
+
+
+class SyncResponse(BaseModel):
+    results: list[SyncResult]
+    total_downloaded: int
+    total_skipped: int
+    total_failed: int

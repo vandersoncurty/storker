@@ -5,6 +5,7 @@ const API_URL = 'http://localhost:8000';
 
 const categories = [
   { id: 'integrations', label: 'Integrações' },
+  { id: 'thingiverse', label: 'Thingiverse' },
   { id: 'store', label: 'Loja' },
   { id: 'printers', label: 'Impressoras' },
 ];
@@ -31,7 +32,7 @@ export default function Settings() {
     }
   };
 
-  const handleIntegrationsChange = (field, value) => {
+  const handleChange = (field, value) => {
     setSettings(prev => ({
       ...prev,
       integrations: { ...prev.integrations, [field]: value }
@@ -86,10 +87,10 @@ export default function Settings() {
 
         <div style={{ flex: 1, borderLeft: '1px solid var(--border)', paddingLeft: '24px' }}>
           {activeCategory === 'integrations' && (
-            <IntegrationsTab
-              data={settings?.integrations}
-              onChange={handleIntegrationsChange}
-            />
+            <IntegrationsTab data={settings?.integrations} onChange={handleChange} />
+          )}
+          {activeCategory === 'thingiverse' && (
+            <ThingiverseTab data={settings?.integrations} onChange={handleChange} />
           )}
           {activeCategory === 'store' && <StoreTab />}
           {activeCategory === 'printers' && <PrintersTab />}
@@ -138,6 +139,37 @@ function IntegrationsTab({ data, onChange }) {
           value={data?.spoolman_url || ''}
           onChange={(v) => onChange('spoolman_url', v)}
           placeholder="http://localhost:7912"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ThingiverseTab({ data, onChange }) {
+  return (
+    <div>
+      <h2>Thingiverse</h2>
+      <p style={{ color: 'var(--text)', marginBottom: '20px' }}>
+        Configure sincronização de coleções do Thingiverse.
+        Crie uma API key em{' '}
+        <a href="https://www.thingiverse.com/apps/create" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+          thingiverse.com/apps/create
+        </a>
+      </p>
+
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
+        <Field
+          label="Diretório de Download"
+          value={data?.thingiverse_download_dir || ''}
+          onChange={(v) => onChange('thingiverse_download_dir', v)}
+          placeholder="./models"
+        />
+        <Field
+          label="Intervalo de Sync (minutos, 0 = desligado)"
+          type="number"
+          value={data?.thingiverse_sync_interval ?? 0}
+          onChange={(v) => onChange('thingiverse_sync_interval', parseInt(v) || 0)}
+          placeholder="0"
         />
       </div>
     </div>

@@ -30,6 +30,9 @@ docker compose up --build          # Build e roda tudo
 docker compose up -d               # Roda em background
 docker compose down                # Para tudo
 docker compose logs -f backend     # Logs do backend
+
+# Testes
+cd backend && .venv/bin/pytest tests/ -v
 ```
 
 ## Estrutura
@@ -37,28 +40,48 @@ docker compose logs -f backend     # Logs do backend
 ```
 backend/app/
   main.py          # FastAPI app + CORS + routers
-  config.py        # Settings via env vars (MOONRAKER_URL, SPOOLMAN_URL, etc.)
+  config.py        # Settings via env vars + .env (python-dotenv)
   database.py      # SQLAlchemy engine + session
-  models.py        # Models: Product, Order
+  models.py        # Models: Product, Order, ThingiverseCollectionConfig, ThingiverseSync
   schemas.py       # Pydantic schemas
-  routers/         # API routers (products, orders, settings)
-  services/        # Clients HTTP: moonraker.py, spoolman.py
+  routers/         # API routers (products, orders, settings, thingiverse)
+  services/        # Clients HTTP: moonraker.py, spoolman.py, thingiverse.py, sync.py
 
 frontend/src/
-  App.jsx          # Componente principal com navegação
+  App.jsx          # Sidebar navigation + page routing
   main.jsx         # Entry point React
-  pages/           # Páginas: Settings.jsx
+  pages/           # Dashboard, Thingiverse, Settings, ...
 ```
 
 ## Convenções
 
 - **Idioma**: Comentários e variáveis em português no código do backend; componentes React em inglês
-- **Ambiente**: Variáveis de configuração em `backend/app/config.py` via env vars
+- **Ambiente**: Variáveis de configuração via `.env` (carregado por python-dotenv em config.py)
 - **Database**: SQLite em dev (`store.db`); trocar `DATABASE_URL` para PostgreSQL em prod
-- **Moonraker**: API REST em `http://localhost:7125` (configurável via `MOONRAKER_URL`)
-- **Spoolman**: API REST em `http://localhost:7912` (configurável via `SPOOLMAN_URL`)
-- **CORS**: Frontend assume porta 5173 (Vite default)
 - **Settings**: Configurações salvas em `backend/settings.json` (gitignored)
+- **CORS**: Frontend assume porta 5173 (Vite default)
+
+## Integrações
+
+- **Moonraker**: API REST em `http://localhost:7125` (MOONRAKER_URL)
+- **Spoolman**: API REST em `http://localhost:7912` (SPOOLMAN_URL)
+- **Thingiverse**: Bearer token via THINGIVERSE_APP_TOKEN no `.env`
+
+## Thingiverse Sync
+
+- Crie API key em https://www.thingiverse.com/apps/create
+- Cadastre collections pelo frontend (Configurações → Thingiverse ou aba Thingiverse)
+- Sync manual (botão) ou automático (intervalo em minutos)
+- STLs salvos no diretório configurado (default: `./models/`)
+- A API key fica em `.env` (não committar)
+
+## Testes
+
+```bash
+cd backend
+.venv/bin/pytest tests/ -v          # Todos
+.venv/bin/pytest tests/test_products.py -v  # Só products
+```
 
 ## Módulos previstos (criar separadamente)
 
@@ -70,7 +93,8 @@ frontend/src/
 
 ## Gotchas
 
-- `primary_order` não existe em SQLAlchemy; usar apenas `primary_key=True`
 - Moonraker API é async (usar httpx AsyncClient)
 - Spoolman API retorna peso em gramas
 - SQLite não suporta `check_same_thread=False` em produção - trocar para PostgreSQL
+- `.env` nunca deve ser committado (contém THINGIVERSE_APP_TOKEN)
+- O venv do backend usa Python 3.14 (Arch) - recriar com `python -m venv .venv` se quebrar

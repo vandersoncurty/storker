@@ -23,3 +23,26 @@ class Order(Base):
     shopee_order_id = Column(String, unique=True, index=True)
     status = Column(String, default="PENDING")  # PENDING, PRINTING, DONE, SHIPPED
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ThingiverseCollectionConfig(Base):
+    """Collections configuradas para sync automático."""
+    __tablename__ = "thingiverse_collections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    collection_id = Column(Integer, unique=True, index=True)
+    name = Column(String)
+    last_synced_at = Column(DateTime, nullable=True)
+
+
+class ThingiverseSync(Base):
+    """Registro de things baixados do Thingiverse."""
+    __tablename__ = "thingiverse_sync"
+
+    id = Column(Integer, primary_key=True, index=True)
+    thing_id = Column(Integer, unique=True, index=True)
+    thing_name = Column(String, nullable=False)
+    thing_url = Column(String)
+    local_path = Column(String)
+    status = Column(String, default="DOWNLOADED")  # DOWNLOADED / FAILED
+    synced_at = Column(DateTime, default=datetime.utcnow)
