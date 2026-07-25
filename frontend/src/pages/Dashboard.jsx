@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8000';
+import { API_URL } from '../api';
 
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -13,6 +13,7 @@ export default function Dashboard() {
 
   const loadData = async () => {
     try {
+      setError(null);
       const [prodRes, orderRes] = await Promise.all([
         axios.get(`${API_URL}/products/`),
         axios.get(`${API_URL}/orders/`)
@@ -20,9 +21,22 @@ export default function Dashboard() {
       setProducts(prodRes.data);
       setOrders(orderRes.data);
     } catch (err) {
-      console.error('Erro ao carregar dados:', err);
+      setError('Erro ao carregar dados do dashboard');
+      console.error(err);
     }
   };
+
+  if (error) {
+    return (
+      <div>
+        <h1>Dashboard</h1>
+        <p style={{ color: '#ef4444', marginTop: '12px' }}>{error}</p>
+        <button onClick={loadData} style={{ marginTop: '8px', padding: '8px 16px', cursor: 'pointer' }}>
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
 
   const stats = [
     { label: 'Produtos', value: products.length, color: '#aa3bff' },

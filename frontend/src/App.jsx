@@ -5,13 +5,13 @@ import Thingiverse from './pages/Thingiverse';
 import Settings from './pages/Settings';
 
 const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'products', label: 'Produtos', icon: '📦' },
-  { id: 'orders', label: 'Pedidos', icon: '🛒' },
-  { id: 'printers', label: 'Impressoras', icon: '🖨️' },
-  { id: 'filament', label: 'Filamento', icon: '🧵' },
-  { id: 'thingiverse', label: 'Thingiverse', icon: '⬇️' },
-  { id: 'settings', label: 'Configurações', icon: '⚙️' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'D' },
+  { id: 'products', label: 'Produtos', icon: 'P' },
+  { id: 'orders', label: 'Pedidos', icon: 'O' },
+  { id: 'printers', label: 'Impressoras', icon: 'I' },
+  { id: 'filament', label: 'Filamento', icon: 'F' },
+  { id: 'thingiverse', label: 'Thingiverse', icon: 'T' },
+  { id: 'settings', label: 'Configurações', icon: 'C' },
 ];
 
 function App() {
@@ -79,7 +79,13 @@ function App() {
                 fontSize: '14px',
               }}
             >
-              <span>{item.icon}</span>
+              <span style={{
+                width: '24px', height: '24px', borderRadius: '6px',
+                background: currentPage === item.id ? 'var(--accent)' : 'var(--code-bg)',
+                color: currentPage === item.id ? '#fff' : 'var(--text)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '12px', fontWeight: '700', flexShrink: 0,
+              }}>{item.icon}</span>
               {item.label}
             </button>
           ))}

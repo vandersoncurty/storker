@@ -1,16 +1,19 @@
 """Router de produtos - CRUD, imagens e gestão de catálogo."""
 
+import mimetypes
 import shutil
 import uuid
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 
 from ..config import PRODUCT_IMAGES_DIR
 from ..database import get_db
 from .. import models, schemas
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -26,9 +29,9 @@ def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)
 
 
 @router.get("/", response_model=List[schemas.ProductResponse])
-def list_products(db: Session = Depends(get_db)):
+def list_products(skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
     """Lista todos os produtos, ordenados por data de criação (mais recente primeiro)."""
-    return db.query(models.Product).order_by(models.Product.created_at.desc()).all()
+    return db.query(models.Product).order_by(models.Product.created_at.desc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{product_id}", response_model=schemas.ProductResponse)
@@ -70,6 +73,9 @@ async def upload_image(product_id: int, file: UploadFile = File(...), db: Sessio
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail=f"Formato não suportado. Use: {', '.join(ALLOWED_IMAGE_TYPES)}")
 
     PRODUCT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     ext = Path(file.filename).suffix or ".jpg"

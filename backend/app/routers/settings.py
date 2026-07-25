@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 from .. import schemas
-from .settings_file import load_settings, save_settings
+from ..services.settings_file import load_settings, save_settings
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 

@@ -2,7 +2,7 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -27,9 +27,9 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[schemas.OrderResponse])
-def list_orders(db: Session = Depends(get_db)):
+def list_orders(skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
     """Lista todos os pedidos."""
-    return db.query(models.Order).all()
+    return db.query(models.Order).offset(skip).limit(limit).all()
 
 
 @router.get("/{order_id}", response_model=schemas.OrderResponse)

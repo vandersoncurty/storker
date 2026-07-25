@@ -9,7 +9,7 @@ from ..config import THINGIVERSE_MODELS_DIR, PRODUCT_IMAGES_DIR
 from ..models import Product, ProductImage, ThingiverseCollectionConfig, ThingiverseSync
 from ..schemas import SyncResult
 from . import thingiverse
-from ..routers.settings_file import load_settings
+from .settings_file import load_settings
 
 
 def _get_download_dir() -> Path:

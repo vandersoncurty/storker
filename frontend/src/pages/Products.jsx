@@ -1,27 +1,40 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8000';
+import { API_URL } from '../api';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
 
   useEffect(() => { loadProducts(); }, []);
 
   const loadProducts = async () => {
     try {
+      setError(null);
       const res = await axios.get(`${API_URL}/products/`);
       setProducts(res.data);
     } catch (err) {
-      console.error('Erro ao carregar produtos:', err);
+      setError('Erro ao carregar produtos');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) return <p>Carregando...</p>;
+  if (error) {
+    return (
+      <div>
+        <h1>Produtos</h1>
+        <p style={{ color: '#ef4444', marginTop: '12px' }}>{error}</p>
+        <button onClick={loadProducts} style={{ marginTop: '8px', padding: '8px 16px', cursor: 'pointer' }}>
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -42,7 +55,7 @@ export default function Products() {
   );
 }
 
-function ProductCard({ product, onRefresh, onEdit }) {
+function ProductCard({ product, onEdit }) {
   const primaryImage = product.images.find(i => i.is_primary);
   const thingiverseImage = product.images.find(i => i.source === 'thingiverse');
 
@@ -130,8 +143,16 @@ function EditModal({ product, onClose, onRefresh }) {
     is_sliced: product.is_sliced,
   });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('success');
   const fileInputRef = useRef(null);
+
+  const showMessage = (text, type = 'success') => {
+    setMessage(text);
+    setMessageType(type);
+    setTimeout(() => setMessage(null), 3000);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -144,10 +165,10 @@ function EditModal({ product, onClose, onRefresh }) {
         filament_grams: form.filament_grams ? parseFloat(form.filament_grams) : null,
         print_time_seconds: form.print_time_seconds ? parseInt(form.print_time_seconds) : null,
       });
-      setMessage('Salvo!');
+      showMessage('Salvo!');
       onRefresh();
-      setTimeout(() => setMessage(null), 2000);
     } catch (err) {
+      showMessage('Erro ao salvar', 'error');
       console.error(err);
     } finally {
       setSaving(false);
@@ -157,21 +178,28 @@ function EditModal({ product, onClose, onRefresh }) {
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setUploading(true);
     const formData = new FormData();
     formData.append('file', file);
     try {
       await axios.post(`${API_URL}/products/${product.id}/images/upload`, formData);
+      showMessage('Imagem enviada!');
       onRefresh();
     } catch (err) {
+      showMessage('Erro ao enviar imagem', 'error');
       console.error(err);
+    } finally {
+      setUploading(false);
     }
   };
 
   const handleSetPrimary = async (imageId) => {
     try {
       await axios.patch(`${API_URL}/products/${product.id}/images/${imageId}/primary`);
+      showMessage('Imagem principal atualizada');
       onRefresh();
     } catch (err) {
+      showMessage('Erro ao definir imagem principal', 'error');
       console.error(err);
     }
   };
@@ -228,11 +256,11 @@ function EditModal({ product, onClose, onRefresh }) {
             <h3 style={{ margin: 0, fontSize: '15px' }}>Imagens</h3>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', color: 'var(--text)' }}>{product.images.length} imagem(ns)</span>
-              <button onClick={() => fileInputRef.current?.click()} style={{
+              <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
                 padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)',
-                background: 'var(--bg)', cursor: 'pointer', fontSize: '13px',
+                background: 'var(--bg)', cursor: uploading ? 'not-allowed' : 'pointer', fontSize: '13px',
               }}>
-                Enviar imagem
+                {uploading ? 'Enviando...' : 'Enviar imagem'}
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
             </div>
@@ -278,7 +306,7 @@ function EditModal({ product, onClose, onRefresh }) {
           }}>
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
-          {message && <span style={{ color: '#22c55e' }}>{message}</span>}
+          {message && <span style={{ color: messageType === 'success' ? '#22c55e' : '#ef4444' }}>{message}</span>}
         </div>
       </div>
     </div>

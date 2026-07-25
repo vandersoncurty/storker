@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8000';
+import { API_URL } from '../api';
 
 const categories = [
   { id: 'integrations', label: 'Integrações' },
@@ -16,6 +15,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('success');
 
   useEffect(() => {
     loadSettings();
@@ -26,7 +26,9 @@ export default function Settings() {
       const res = await axios.get(`${API_URL}/settings/`);
       setSettings(res.data);
     } catch (err) {
-      console.error('Erro ao carregar configurações:', err);
+      setMessage('Erro ao carregar configurações');
+      setMessageType('error');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -44,9 +46,11 @@ export default function Settings() {
     setMessage(null);
     try {
       await axios.put(`${API_URL}/settings/`, settings);
-      setMessage({ type: 'success', text: 'Configurações salvas!' });
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Erro ao salvar configurações' });
+      setMessage('Configurações salvas!');
+      setMessageType('success');
+    } catch {
+      setMessage('Erro ao salvar configurações');
+      setMessageType('error');
     } finally {
       setSaving(false);
       setTimeout(() => setMessage(null), 3000);
@@ -110,8 +114,8 @@ export default function Settings() {
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
         {message && (
-          <span style={{ color: message.type === 'success' ? '#22c55e' : '#ef4444' }}>
-            {message.text}
+          <span style={{ color: messageType === 'success' ? '#22c55e' : '#ef4444' }}>
+            {message}
           </span>
         )}
       </div>

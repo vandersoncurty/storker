@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8000';
+import { API_URL } from '../api';
 
 export default function Thingiverse() {
   const [collections, setCollections] = useState([]);
@@ -11,13 +10,21 @@ export default function Thingiverse() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionMessage, setActionMessage] = useState(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
+  const showAction = (text, type = 'success') => {
+    setActionMessage({ text, type });
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
   const loadData = async () => {
     try {
+      setError(null);
       const [collRes, dlRes] = await Promise.all([
         axios.get(`${API_URL}/thingiverse/collections`),
         axios.get(`${API_URL}/thingiverse/downloads`),
@@ -25,7 +32,8 @@ export default function Thingiverse() {
       setCollections(collRes.data);
       setDownloads(dlRes.data);
     } catch (err) {
-      console.error('Erro ao carregar dados Thingiverse:', err);
+      setError('Erro ao carregar dados');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -41,18 +49,22 @@ export default function Thingiverse() {
       });
       setNewCollectionId('');
       setNewCollectionName('');
+      showAction('Collection adicionada!');
       loadData();
     } catch (err) {
-      console.error('Erro ao adicionar collection:', err);
+      showAction('Erro ao adicionar collection', 'error');
+      console.error(err);
     }
   };
 
   const handleRemoveCollection = async (collectionId) => {
     try {
       await axios.delete(`${API_URL}/thingiverse/collections/${collectionId}`);
+      showAction('Collection removida!');
       loadData();
     } catch (err) {
-      console.error('Erro ao remover collection:', err);
+      showAction('Erro ao remover collection', 'error');
+      console.error(err);
     }
   };
 
@@ -62,9 +74,11 @@ export default function Thingiverse() {
     try {
       const res = await axios.post(`${API_URL}/thingiverse/sync`);
       setSyncResult(res.data);
+      showAction('Sincronização concluída!');
       loadData();
     } catch (err) {
-      console.error('Erro na sincronização:', err);
+      showAction('Erro na sincronização', 'error');
+      console.error(err);
     } finally {
       setSyncing(false);
     }
@@ -72,9 +86,27 @@ export default function Thingiverse() {
 
   if (loading) return <p>Carregando...</p>;
 
+  if (error) {
+    return (
+      <div>
+        <h1>Thingiverse</h1>
+        <p style={{ color: '#ef4444', marginTop: '12px' }}>{error}</p>
+        <button onClick={loadData} style={{ marginTop: '8px', padding: '8px 16px', cursor: 'pointer' }}>
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h1>Thingiverse</h1>
+
+      {actionMessage && (
+        <p style={{ color: actionMessage.type === 'success' ? '#22c55e' : '#ef4444', marginBottom: '12px' }}>
+          {actionMessage.text}
+        </p>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '20px' }}>
         <div>
@@ -119,15 +151,15 @@ export default function Thingiverse() {
                     title="Remover collection"
                     style={{
                       background: 'none',
-                      border: 'none',
+                      border: '1px solid #ef4444',
                       color: '#ef4444',
                       cursor: 'pointer',
-                      padding: '4px 8px',
+                      padding: '2px 8px',
                       borderRadius: '4px',
-                      fontSize: '16px',
+                      fontSize: '12px',
                     }}
                   >
-                    🗑️
+                    Remover
                   </button>
                 </li>
               ))}
