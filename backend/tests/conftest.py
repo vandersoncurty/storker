@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.config import DATA_DIR
 from app.database import Base, get_db
 from app.main import app
 
@@ -25,14 +24,9 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    conf_file = DATA_DIR / "config" / "storker.conf"
-    if conf_file.exists():
-        conf_file.unlink()
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
-    if conf_file.exists():
-        conf_file.unlink()
 
 
 @pytest.fixture
