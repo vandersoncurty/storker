@@ -157,6 +157,84 @@ function IntegrationsTab({ data, onChange }) {
 }
 
 function ThingiverseTab({ data, onChange }) {
+  const [collections, setCollections] = useState([]);
+  const [downloads, setDownloads] = useState([]);
+  const [newCollectionId, setNewCollectionId] = useState('');
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [loadingCol, setLoadingCol] = useState(true);
+
+  const loadCollections = async () => {
+    try {
+      setLoadingCol(true);
+      const [colRes, dlRes] = await Promise.all([
+        axios.get(`${API_URL}/thingiverse/collections`),
+        axios.get(`${API_URL}/thingiverse/downloads`),
+      ]);
+      setCollections(colRes.data);
+      setDownloads(dlRes.data);
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingCol(false);
+    }
+  };
+
+  useEffect(() => { loadCollections(); }, []);
+
+  const handleAddCollection = async () => {
+    if (!newCollectionId) return;
+    try {
+      await axios.post(`${API_URL}/thingiverse/collections`, {
+        collection_id: parseInt(newCollectionId),
+        name: newCollectionName || '',
+      });
+      setNewCollectionId('');
+      setNewCollectionName('');
+      loadCollections();
+    } catch {
+      alert('Erro ao adicionar collection. Verifique o ID.');
+    }
+  };
+
+  const handleRemoveCollection = async (collectionId) => {
+    try {
+      await axios.delete(`${API_URL}/thingiverse/collections/${collectionId}`);
+      loadCollections();
+    } catch {
+      alert('Erro ao remover collection.');
+    }
+  };
+
+  const handleSyncAll = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await axios.post(`${API_URL}/thingiverse/sync`);
+      setSyncResult(res.data);
+      loadCollections();
+    } catch {
+      alert('Erro ao sincronizar.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSyncCollection = async (collectionId) => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await axios.post(`${API_URL}/thingiverse/sync/${collectionId}`);
+      setSyncResult(res.data);
+      loadCollections();
+    } catch {
+      alert('Erro ao sincronizar collection.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div>
       <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Thingiverse</h2>
@@ -168,7 +246,7 @@ function ThingiverseTab({ data, onChange }) {
         </a>
       </p>
 
-      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px', marginBottom: '24px' }}>
         <Field
           label="App Token (Thingiverse API Key)"
           value={data?.app_token || ''}
@@ -189,6 +267,123 @@ function ThingiverseTab({ data, onChange }) {
           onChange={(v) => onChange('sync_interval', parseInt(v) || 0)}
           placeholder="0"
         />
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px' }}>
+        <h3 style={{ fontSize: '15px', marginBottom: '12px', color: 'var(--text-h)' }}>Coleções</h3>
+
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <input
+            type="number"
+            value={newCollectionId}
+            onChange={e => setNewCollectionId(e.target.value)}
+            placeholder="Collection ID"
+            style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px', width: '140px' }}
+            onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.outline = 'none'; }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+          />
+          <input
+            type="text"
+            value={newCollectionName}
+            onChange={e => setNewCollectionName(e.target.value)}
+            placeholder="Nome (opcional)"
+            style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px', flex: 1 }}
+            onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.outline = 'none'; }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+          />
+          <button onClick={handleAddCollection} style={{
+            padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: 'none',
+            background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: '600', fontSize: '13px',
+          }}>
+            Adicionar
+          </button>
+        </div>
+
+        {loadingCol ? (
+          <p style={{ color: 'var(--text)', fontSize: '14px' }}>Carregando...</p>
+        ) : collections.length === 0 ? (
+          <p style={{ color: 'var(--text)', fontSize: '14px', fontStyle: 'italic' }}>Nenhuma collection configurada.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '16px' }}>
+            {collections.map(col => (
+              <div key={col.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 12px', background: 'var(--bg)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+              }}>
+                <div>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{col.name || `Collection #${col.collection_id}`}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text)', marginLeft: '8px' }}>ID: {col.collection_id}</span>
+                  {col.last_synced_at && (
+                    <span style={{ fontSize: '12px', color: 'var(--text)', marginLeft: '8px' }}>
+                      · Sincronizado: {new Date(col.last_synced_at).toLocaleString('pt-BR')}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button onClick={() => handleSyncCollection(col.collection_id)} disabled={syncing} style={{
+                    padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                    background: 'var(--bg)', cursor: syncing ? 'not-allowed' : 'pointer', fontSize: '12px', color: 'var(--accent)',
+                  }}>
+                    Sincronizar
+                  </button>
+                  <button onClick={() => handleRemoveCollection(col.collection_id)} style={{
+                    padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--danger)',
+                    background: 'var(--bg)', cursor: 'pointer', fontSize: '12px', color: 'var(--danger)',
+                  }}>
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '20px' }}>
+          <button onClick={handleSyncAll} disabled={syncing} style={{
+            padding: '8px 20px', borderRadius: 'var(--radius-sm)', border: 'none',
+            background: syncing ? 'var(--border-h)' : 'var(--accent)',
+            color: '#fff', cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '14px',
+          }}>
+            {syncing ? 'Sincronizando...' : 'Sincronizar todas'}
+          </button>
+          {syncResult && (
+            <span style={{ fontSize: '13px', color: 'var(--text)' }}>
+              {syncResult.total_downloaded} baixados, {syncResult.total_skipped} ignorados, {syncResult.total_failed} falhas
+            </span>
+          )}
+        </div>
+
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+          <h4 style={{ fontSize: '14px', marginBottom: '10px', color: 'var(--text-h)' }}>Histórico de downloads</h4>
+          {downloads.length === 0 ? (
+            <p style={{ color: 'var(--text)', fontSize: '13px', fontStyle: 'italic' }}>Nenhum download ainda.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '240px', overflowY: 'auto' }}>
+              {downloads.map(dl => (
+                <div key={dl.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 12px', background: 'var(--bg-muted, #f9f9f9)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', fontSize: '13px',
+                }}>
+                  <span style={{ color: 'var(--text-h)' }}>{dl.thing_name}</span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{
+                      fontSize: '11px', fontWeight: '600', padding: '2px 6px', borderRadius: 'var(--radius-sm)',
+                      color: dl.status === 'DOWNLOADED' ? 'var(--success)' : 'var(--danger)',
+                      background: dl.status === 'DOWNLOADED' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                    }}>
+                      {dl.status === 'DOWNLOADED' ? 'OK' : 'Falha'}
+                    </span>
+                    <span style={{ color: 'var(--text)', fontSize: '12px' }}>
+                      {new Date(dl.synced_at).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
