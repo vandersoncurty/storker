@@ -3,10 +3,10 @@ import axios from 'axios';
 import { API_URL } from '../api';
 
 const categories = [
-  { id: 'integrations', label: 'Integrações' },
   { id: 'thingiverse', label: 'Thingiverse' },
   { id: 'store', label: 'Loja' },
   { id: 'printers', label: 'Impressoras' },
+  { id: 'filament', label: 'Filamento' },
 ];
 
 export default function Settings() {
@@ -105,9 +105,6 @@ export default function Settings() {
           flex: 1, background: 'var(--bg)', border: '1px solid var(--border)',
           borderRadius: 'var(--radius-lg)', padding: '24px',
         }}>
-          {activeCategory === 'integrations' && (
-            <IntegrationsTab data={settings} onChange={handleChange} />
-          )}
           {activeCategory === 'thingiverse' && (
             <ThingiverseTab data={settings?.thingiverse} onChange={(field, v) => handleChange('thingiverse', field, v)} />
           )}
@@ -116,6 +113,9 @@ export default function Settings() {
           )}
           {activeCategory === 'printers' && (
             <PrintersTab data={settings?.printers} onChange={(field, v) => handleChange('printers', field, v)} />
+          )}
+          {activeCategory === 'filament' && (
+            <FilamentTab data={settings?.spoolman} onChange={(field, v) => handleChange('spoolman', field, v)} />
           )}
 
           <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -129,32 +129,6 @@ export default function Settings() {
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function IntegrationsTab({ data, onChange }) {
-  return (
-    <div>
-      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Integrações</h2>
-      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
-        Configure as URLs dos serviços externos.
-      </p>
-
-      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
-        <Field
-          label="Moonraker Server"
-          value={data?.moonraker?.server || ''}
-          onChange={(v) => onChange('moonraker', 'server', v)}
-          placeholder="http://localhost:7125"
-        />
-        <Field
-          label="Spoolman Server"
-          value={data?.spoolman?.server || ''}
-          onChange={(v) => onChange('spoolman', 'server', v)}
-          placeholder="http://localhost:7912"
-        />
       </div>
     </div>
   );
@@ -445,6 +419,25 @@ function PrintersTab({ data, onChange }) {
           value={data?.default_server || 'http://localhost:7125'}
           onChange={(v) => onChange('default_server', v)}
           placeholder="http://localhost:7125"
+        />
+      </div>
+    </div>
+  );
+}
+
+function FilamentTab({ data, onChange }) {
+  return (
+    <div>
+      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Filamento</h2>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
+        Configure a integração com o Spoolman para gerenciar filamentos.
+      </p>
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
+        <Field
+          label="Servidor Spoolman"
+          value={data?.server || 'http://localhost:7912'}
+          onChange={(v) => onChange('server', v)}
+          placeholder="http://localhost:7912"
         />
       </div>
     </div>

@@ -93,8 +93,19 @@ export default function FileExplorer() {
     setContextMenu(null);
   };
 
-  const handleSendToQueue = () => {
-    showMessage('Enviar para fila — em breve!');
+  const handleSendToQueue = async (project) => {
+    const gcode = project.files.find(f => f.file_type === 'gcode');
+    if (!gcode) {
+      showMessage('Projeto não possui GCode vinculado', 'error');
+      setContextMenu(null);
+      return;
+    }
+    try {
+      await axios.post(`${API_URL}/jobs/queue`, null, { params: { filename: gcode.filename } });
+      showMessage('Adicionado à fila do Moonraker!');
+    } catch {
+      showMessage('Erro ao adicionar à fila', 'error');
+    }
     setContextMenu(null);
   };
 
@@ -246,7 +257,7 @@ export default function FileExplorer() {
           )}
           <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
           <MenuItem label="Enviar para fila" icon="M5 12h14m-7-7l7 7-7 7"
-            onClick={handleSendToQueue} disabled />
+            onClick={() => handleSendToQueue(contextMenu.project)} />
           <MenuItem label="Excluir projeto" icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
             onClick={() => handleDeleteProject(contextMenu.project)} />
         </div>

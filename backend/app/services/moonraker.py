@@ -1,31 +1,87 @@
-"""Moonraker API client - interface com Klipper via Moonraker."""
+"""Moonraker API client - interface com Klipper via Moonraker.
+
+Usa URL do settings (storker.conf) ou fallback para env MOONRAKER_URL.
+"""
 
 import httpx
 
-from ..config import MOONRAKER_URL
+from ..config import MOONRAKER_URL as FALLBACK_URL
+from .settings_file import load_settings
+
+
+def _get_url() -> str:
+    try:
+        settings = load_settings()
+        return settings.printers.default_server or settings.moonraker.server or FALLBACK_URL
+    except Exception:
+        return FALLBACK_URL
 
 
 async def get_printer_info() -> dict:
-    """Busca status geral da impressora via Moonraker."""
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{MOONRAKER_URL}/printer/info")
+        response = await client.get(f"{_get_url()}/printer/info")
         response.raise_for_status()
         return response.json()
 
 
 async def get_print_stats() -> dict:
-    """Busca estatísticas de impressão em andamento."""
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{MOONRAKER_URL}/printer/objects/query?heater_bed&gcode_move&print_stats")
+        response = await client.get(f"{_get_url()}/printer/objects/query?heater_bed&gcode_move&print_stats")
+        response.raise_for_status()
+        return response.json()
+
+
+async def get_printer_objects_list() -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{_get_url()}/printer/objects/list")
+        response.raise_for_status()
+        return response.json()
+
+
+async def get_job_queue() -> list:
+    """Retorna a fila de impressão do Moonraker."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{_get_url()}/server/job_queue/status")
+        response.raise_for_status()
+        data = response.json()
+        return data.get("result", {}).get("queue", [])
+
+
+async def post_job_queue(filename: str) -> dict:
+    """Adiciona um arquivo à fila de impressão."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{_get_url()}/server/job_queue/job",
+            json={"filename": filename},
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+async def get_directory(directory: str = "gcodes") -> dict:
+    """Lista arquivos em um diretório no Moonraker."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{_get_url()}/server/files/list?root={directory}")
+        response.raise_for_status()
+        return response.json()
+
+
+async def upload_file_to_moonraker(filename: str, filepath: str) -> dict:
+    """Envia um arquivo GCode para o Moonraker."""
+    async with httpx.AsyncClient() as client:
+        with open(filepath, "rb") as f:
+            response = await client.post(
+                f"{_get_url()}/server/files/upload",
+                files={"file": (filename, f, "application/octet-stream")},
+            )
         response.raise_for_status()
         return response.json()
 
 
 async def start_print(gcode_filename: str) -> dict:
-    """Envia arquivo G-code para impressão via Moonraker."""
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{MOONRAKER_URL}/printer/print/start",
+            f"{_get_url()}/printer/print/start",
             json={"filename": gcode_filename}
         )
         response.raise_for_status()
@@ -33,24 +89,21 @@ async def start_print(gcode_filename: str) -> dict:
 
 
 async def cancel_print() -> dict:
-    """Cancela a impressão em andamento."""
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{MOONRAKER_URL}/printer/print/cancel")
+        response = await client.post(f"{_get_url()}/printer/print/cancel")
         response.raise_for_status()
         return response.json()
 
 
 async def pause_print() -> dict:
-    """Pausa a impressão em andamento."""
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{MOONRAKER_URL}/printer/print/pause")
+        response = await client.post(f"{_get_url()}/printer/print/pause")
         response.raise_for_status()
         return response.json()
 
 
 async def resume_print() -> dict:
-    """Retoma a impressão pausada."""
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{MOONRAKER_URL}/printer/print/resume")
+        response = await client.post(f"{_get_url()}/printer/print/resume")
         response.raise_for_status()
         return response.json()

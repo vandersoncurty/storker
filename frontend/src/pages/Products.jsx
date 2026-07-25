@@ -3,6 +3,13 @@ import axios from 'axios';
 import { API_URL } from '../api';
 import ThingiverseIcon from '../components/ThingiverseIcon';
 
+const COST_DEFAULTS = {
+  filament_price_per_kg: 100,
+  electricity_rate: 0.95,
+  printer_watts: 250,
+  markup_percentage: 30,
+};
+
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -193,6 +200,15 @@ function EditModal({ product, onClose, onRefresh }) {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState('success');
+  const [showCostCalc, setShowCostCalc] = useState(false);
+  const [costForm, setCostForm] = useState({
+    filament_price_per_kg: COST_DEFAULTS.filament_price_per_kg,
+    electricity_rate: COST_DEFAULTS.electricity_rate,
+    printer_watts: COST_DEFAULTS.printer_watts,
+    markup_percentage: COST_DEFAULTS.markup_percentage,
+  });
+  const [costResult, setCostResult] = useState(null);
+  const [applying, setApplying] = useState(false);
   const fileInputRef = useRef(null);
 
   const showMessage = (text, type = 'success') => {
@@ -259,6 +275,39 @@ function EditModal({ product, onClose, onRefresh }) {
       onRefresh();
     } catch {
       showMessage('Erro ao remover imagem', 'error');
+    }
+  };
+
+  const handleEstimateCost = async () => {
+    try {
+      const payload = {
+        filament_grams: parseFloat(form.filament_grams) || 0,
+        print_time_seconds: parseInt(form.print_time_seconds) || 0,
+        ...costForm,
+      };
+      const res = await axios.post(`${API_URL}/costs/estimate`, payload);
+      setCostResult(res.data);
+    } catch {
+      showMessage('Erro ao calcular custo', 'error');
+    }
+  };
+
+  const handleApplyCost = async () => {
+    setApplying(true);
+    try {
+      const payload = {
+        filament_grams: parseFloat(form.filament_grams) || 0,
+        print_time_seconds: parseInt(form.print_time_seconds) || 0,
+        ...costForm,
+      };
+      await axios.post(`${API_URL}/costs/apply/${product.id}`, payload);
+      showMessage('Custo aplicado ao produto!');
+      setShowCostCalc(false);
+      onRefresh();
+    } catch {
+      showMessage('Erro ao aplicar custo', 'error');
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -344,6 +393,69 @@ function EditModal({ product, onClose, onRefresh }) {
             />
             <span>Modelo fatiado (pronto pra imprimir)</span>
           </label>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+            <button onClick={() => { setShowCostCalc(true); setCostResult(null); }} style={{
+              padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)',
+              background: 'transparent', cursor: 'pointer', fontSize: '13px', color: 'var(--accent)', fontWeight: 600,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '6px', verticalAlign: 'middle' }}><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+              Calcular custo
+            </button>
+            {product.production_cost != null && (
+              <span style={{ fontSize: '13px', color: 'var(--text)' }}>
+                Custo: R$ {product.production_cost} | Sugerido: R$ {product.sale_price || '-'}
+              </span>
+            )}
+          </div>
+
+          {showCostCalc && (
+            <div style={{
+              background: 'var(--bg-muted)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)', padding: '16px', display: 'grid', gap: '12px',
+            }}>
+              <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--text-h)' }}>Calculadora de Custo</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <label style={{ display: 'grid', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Filamento (R$/kg)</span>
+                  <input type="number" value={costForm.filament_price_per_kg} onChange={e => setCostForm(f => ({ ...f, filament_price_per_kg: parseFloat(e.target.value) || 0 }))}
+                    style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+                </label>
+                <label style={{ display: 'grid', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Energia (R$/kWh)</span>
+                  <input type="number" value={costForm.electricity_rate} onChange={e => setCostForm(f => ({ ...f, electricity_rate: parseFloat(e.target.value) || 0 }))}
+                    style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+                </label>
+                <label style={{ display: 'grid', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Potência (W)</span>
+                  <input type="number" value={costForm.printer_watts} onChange={e => setCostForm(f => ({ ...f, printer_watts: parseInt(e.target.value) || 0 }))}
+                    style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+                </label>
+                <label style={{ display: 'grid', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Margem (%)</span>
+                  <input type="number" value={costForm.markup_percentage} onChange={e => setCostForm(f => ({ ...f, markup_percentage: parseFloat(e.target.value) || 0 }))}
+                    style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+                </label>
+              </div>
+              <button onClick={handleEstimateCost} style={{
+                padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)',
+                background: 'transparent', cursor: 'pointer', fontSize: '13px', color: 'var(--accent)', fontWeight: 600,
+              }}>Calcular</button>
+              {costResult && (
+                <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: '10px', display: 'grid', gap: '4px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Filamento</span><span style={{ fontWeight: 600 }}>R$ {costResult.filament_cost}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Energia</span><span style={{ fontWeight: 600 }}>R$ {costResult.electricity_cost}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: '4px' }}><span style={{ color: 'var(--text)' }}>Custo produção</span><span style={{ fontWeight: 700 }}>R$ {costResult.production_cost}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Preço sugerido</span><span style={{ fontWeight: 700, color: 'var(--accent)' }}>R$ {costResult.suggested_price}</span></div>
+                  <button onClick={handleApplyCost} disabled={applying} style={{
+                    marginTop: '8px', padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
+                    background: applying ? 'var(--border-h)' : 'var(--accent)', color: '#fff',
+                    cursor: applying ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px',
+                  }}>{applying ? 'Aplicando...' : 'Aplicar ao produto'}</button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>

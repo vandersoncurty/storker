@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import CORS_ORIGINS, PRODUCT_IMAGES_DIR
 from .database import check_and_migrate
-from .routers import products, orders, settings, thingiverse, stl_projects, dashboard
+from .routers import products, orders, settings, thingiverse, stl_projects, dashboard, printers, jobs, costs, filament
 
 check_and_migrate()
 
@@ -83,6 +83,10 @@ app.include_router(settings.router)
 app.include_router(thingiverse.router)
 app.include_router(stl_projects.router)
 app.include_router(dashboard.router)
+app.include_router(printers.router)
+app.include_router(jobs.router)
+app.include_router(costs.router)
+app.include_router(filament.router)
 
 
 @app.get("/", tags=["root"])

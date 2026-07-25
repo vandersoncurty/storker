@@ -58,21 +58,29 @@ backend/app/
     settings.py        # GET/PUT/PATCH settings (via settings_file.py)
     thingiverse.py     # Collections CRUD + sync trigger
     stl_projects.py    # Upload (STL/ZIP), GCode, download, delete
+    printers.py        # Status Moonraker + controles (pause/cancel/resume)
+    jobs.py            # Fila de impressão + envio GCode
+    costs.py           # Calculadora de custo + auto-set em produtos
+    filament.py        # Spoolman integration (spools, filaments)
   services/
-    moonraker.py       # Client async Moonraker API
-    spoolman.py        # Client async Spoolman API
+    moonraker.py       # Client async Moonraker API (com fallback settings)
+    spoolman.py        # Client async Spoolman API (com fallback settings)
     thingiverse.py     # Client async Thingiverse API (things, files, images)
     sync.py            # Sync logic: download STLs+imagens, cria Products + StlProjects
     settings_file.py   # Persistência INI (storker.conf)
+    sync_scheduler.py  # Background task para sync automático
 
 frontend/src/
   App.jsx              # Sidebar navigation + page routing
   main.jsx             # Entry point React
   pages/
     Dashboard.jsx      # Stats cards + Moonraker status
-    Products.jsx       # Grid de cards + modal de edição + search/filter
+    Products.jsx       # Grid de cards + modal de edição + search/filter + cost calc
     StlFiles.jsx       # Arquivos STL (upload, thingiverse, list, edit, delete)
     FileExplorer.jsx   # File browser com right-click menu
+    Printers.jsx       # Status/controle da impressora (Moonraker)
+    Jobs.jsx           # Fila de impressão do Moonraker
+    Filament.jsx       # Spools e filamentos (Spoolman)
     Settings.jsx       # Configurações por categoria + Thingiverse collections
 
 data/
@@ -163,11 +171,11 @@ cd backend
 - [ ] **Página de Pedidos** — backend existe mas sem frontend (será feito com e-commerce)
 
 ### 🟠 Previstos (módulos grandes)
-- [ ] **`printers`** — model + router + página + CRUD + múltiplas impressoras Moonraker
-- [ ] **`filament`** — model + router + página + conectar Spoolman
-- [ ] **`jobs`** — model + router + fila de impressão + histórico
-- [ ] **`costs`** — cálculo automático de custo (filamento × preço + tempo × energia + margem)
-- [ ] **`shopee`** — webhook/polling para importar pedidos
+- [x] **`printers`** — router + página Impressoras + status/controle Moonraker
+- [x] **`filament`** — router + página Filamento + conexão Spoolman (spools, filament types)
+- [x] **`jobs`** — router + página com fila de impressão do Moonraker + enviar para fila
+- [x] **`costs`** — calculadora de custo (filamento × preço + tempo × energia + margem) + auto-set no produto
+- [ ] **`shopee`** — webhook/polling para importar pedidos (pendente)
 
 ### 🟡 Incompletos / Parciais
 - [x] **Sync automático agendado** — background task criada (lê `sync_interval` do settings)
