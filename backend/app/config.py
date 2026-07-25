@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent
+
+# Load .env: project root first, then backend dir (overrides)
+load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(BASE_DIR / ".env")
 
 # Database
@@ -20,8 +23,8 @@ SPOOLMAN_URL = os.getenv("SPOOLMAN_URL", "http://localhost:7912")
 THINGIVERSE_APP_TOKEN = os.getenv("THINGIVERSE_APP_TOKEN", "")
 THINGIVERSE_BASE_URL = "https://api.thingiverse.com"
 
-# Data directories
-DATA_DIR = PROJECT_ROOT / "data"
+# Data directories (inside backend, mapeável via Docker volume)
+DATA_DIR = BASE_DIR / "data"
 THINGIVERSE_MODELS_DIR = DATA_DIR / "thingiverse_models"
 PRODUCT_IMAGES_DIR = DATA_DIR / "product_images"
 

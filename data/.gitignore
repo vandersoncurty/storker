@@ -1,6 +1,0 @@
-# data/
-data/thingiverse_models/
-data/product_images/
-
-# don't keep gitignored data in the repo
-!data/.gitkeep

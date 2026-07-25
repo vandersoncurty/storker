@@ -14,13 +14,10 @@ env/
 test.db
 
 # App data
-data/thingiverse_models/
-data/product_images/
+backend/data/thingiverse_models/
+backend/data/product_images/
+backend/app/settings.json
 backend/settings.json
-backend/models/
-
-# App settings (user-specific)
-settings.json
 
 # Node
 node_modules/
@@ -41,7 +38,6 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
-backend/settings.json
 
 # Logs
 *.log
