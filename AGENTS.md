@@ -49,31 +49,38 @@ backend/app/
   main.py              # FastAPI app + CORS + routers + OpenAPI metadata
   config.py            # Settings via env vars + .env (python-dotenv)
   database.py          # SQLAlchemy engine + session
-  models.py            # Models: Product, ProductImage, Order, Thingiverse*
+  models.py            # Models: Product, ProductImage, Order, Thingiverse*, StlProject, StlFile
   schemas.py           # Pydantic schemas (com ConfigDict)
   routers/
-    products.py        # CRUD + imagens (upload, set primary, delete)
+    products.py        # CRUD + imagens (upload, set primary, delete) + search/filter
     orders.py          # CRUD + status update
+    dashboard.py       # Estatísticas agregadas + Moonraker status
     settings.py        # GET/PUT/PATCH settings (via settings_file.py)
     thingiverse.py     # Collections CRUD + sync trigger
+    stl_projects.py    # Upload (STL/ZIP), GCode, download, delete
   services/
     moonraker.py       # Client async Moonraker API
     spoolman.py        # Client async Spoolman API
     thingiverse.py     # Client async Thingiverse API (things, files, images)
-    sync.py            # Sync logic: download STLs+imagens, cria Products
+    sync.py            # Sync logic: download STLs+imagens, cria Products + StlProjects
+    settings_file.py   # Persistência INI (storker.conf)
 
 frontend/src/
   App.jsx              # Sidebar navigation + page routing
   main.jsx             # Entry point React
   pages/
-    Dashboard.jsx      # Stats cards
-    Products.jsx       # Grid de cards + modal de edição
-    Thingiverse.jsx    # Gerenciar collections + sync
-    Settings.jsx       # Configurações por categoria
+    Dashboard.jsx      # Stats cards + Moonraker status
+    Products.jsx       # Grid de cards + modal de edição + search/filter
+    StlFiles.jsx       # Arquivos STL (upload, thingiverse, list, edit, delete)
+    FileExplorer.jsx   # File browser com right-click menu
+    Settings.jsx       # Configurações por categoria + Thingiverse collections
 
 data/
   thingiverse_models/  # STLs baixados do Thingiverse
   product_images/      # Imagens dos produtos
+  uploaded_models/     # STLs de upload manual
+  gcodes/              # GCode vinculados
+  config/              # storker.conf (configurações em INI)
 ```
 
 ## Convenções
@@ -81,7 +88,7 @@ data/
 - **Idioma**: Comentários e variáveis em português no código do backend; componentes React em inglês
 - **Ambiente**: Variáveis de configuração via `.env` (carregado por python-dotenv em config.py)
 - **Database**: SQLite em dev (`store.db`); trocar `DATABASE_URL` para PostgreSQL em prod
-- **Settings**: Configurações salvas em `backend/settings.json` (gitignored)
+- **Settings**: Configurações salvas em `backend/data/config/storker.conf` (INI via configparser)
 - **CORS**: Frontend assume porta 5173 (Vite default)
 
 ## Commits
@@ -145,3 +152,47 @@ cd backend
 - O venv do backend usa Python 3.14 (Arch) - recriar com `python -m venv .venv` se quebrar
 - `python-multipart` é obrigatório para upload de arquivos no FastAPI
 - Docs da API disponíveis em `/docs` (Swagger) e `/redoc` (ReDoc)
+
+## Checklist de Funcionalidades Pendentes
+
+### 🔴 Crítico (essencial)
+- [x] Upload de ZIP (extraído no backend)
+- [x] Criação automática de Product ao definir título do projeto
+- [x] Excluir produtos / projetos STL / imagens pelo frontend
+- [x] Busca e filtro de produtos (search + is_sliced)
+- [ ] **Página de Pedidos** — backend existe mas sem frontend (será feito com e-commerce)
+
+### 🟠 Previstos (módulos grandes)
+- [ ] **`printers`** — model + router + página + CRUD + múltiplas impressoras Moonraker
+- [ ] **`filament`** — model + router + página + conectar Spoolman
+- [ ] **`jobs`** — model + router + fila de impressão + histórico
+- [ ] **`costs`** — cálculo automático de custo (filamento × preço + tempo × energia + margem)
+- [ ] **`shopee`** — webhook/polling para importar pedidos
+
+### 🟡 Incompletos / Parciais
+- [ ] **Sync automático agendado** — `sync_interval` nunca executado (sem background task)
+- [ ] **Itens de pedido** — `Order` sem relação com `Product`
+- [ ] **Visualizar arquivos dentro do projeto STL** — modal "Editar" não lista arquivos
+- [ ] **Download individual de STL/GCode** do StlFiles (só no FileExplorer)
+- [ ] **Vincular GCode** do StlFiles (só no FileExplorer)
+- [ ] **Aba "Loja" vazia** em Configurações (placeholder)
+- [ ] **Aba "Impressoras" vazia** em Configurações (placeholder)
+- [ ] **"Enviar para fila" desabilitado** no FileExplorer (placeholder)
+- [ ] **Thingiverse.jsx órfão** — 272 linhas não importadas (substituído pelo Settings)
+
+### 🔵 Melhorias / Polimento
+- [ ] **Controles da impressora** — Moonraker start/cancel/pause/resume sem UI
+- [ ] **Visualizador 3D de STL** (three.js / model-viewer)
+- [ ] **Enviar GCode para impressora** — selecionar GCode e disparar start_print
+- [ ] **Dark mode toggle** manual
+- [ ] **Gráficos no Dashboard** (histórico de pedidos, filamento, etc.)
+- [ ] **Otimização de imagens** — redimensionar/comprimir no upload
+- [ ] **Custo filamento automático** — preço por grama do Spoolman
+- [ ] **Autenticação** — API aberta hoje
+- [ ] **Testes** — dashboard, stl_projects, image upload, sync, services
+- [ ] **Migração destrutiva** — `check_and_migrate` deleta DB inteiro se schema mudar
+- [ ] **Sem suporte PostgreSQL** — hardcoded `check_same_thread=False`
+
+---
+
+_Última atualização: Julho 2026 — Checklist gerada automaticamente, manter atualizada._
