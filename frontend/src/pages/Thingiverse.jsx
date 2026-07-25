@@ -108,9 +108,26 @@ export default function Thingiverse() {
                   <div>
                     <strong>{c.name}</strong>
                     <span style={{ color: 'var(--text)', marginLeft: '8px' }}>ID: {c.collection_id}</span>
+                    {c.last_synced_at && (
+                      <span style={{ color: 'var(--text)', marginLeft: '8px', fontSize: '12px' }}>
+                        Sync: {new Date(c.last_synced_at).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
-                  <button onClick={() => handleRemoveCollection(c.collection_id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
-                    Remover
+                  <button
+                    onClick={() => handleRemoveCollection(c.collection_id)}
+                    title="Remover collection"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ef4444',
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '16px',
+                    }}
+                  >
+                    🗑️
                   </button>
                 </li>
               ))}

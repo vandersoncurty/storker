@@ -35,13 +35,25 @@ def _get_images_dir() -> Path:
     return PRODUCT_IMAGES_DIR
 
 
+def _files_exist(local_path: str) -> bool:
+    """Verifica se os arquivos STL ainda existem no disco."""
+    if not local_path:
+        return False
+    path = Path(local_path)
+    if not path.exists():
+        return False
+    stl_files = list(path.glob("*.stl"))
+    return len(stl_files) > 0
+
+
 async def sync_collection(collection_id: int, db: Session) -> SyncResult:
     """Sincroniza uma collection: busca things, baixa STLs+imagens, cria Products."""
     download_dir = _get_download_dir()
     images_dir = _get_images_dir()
 
-    existing_ids = {
-        r.thing_id for r in db.query(ThingiverseSync.thing_id).all()
+    sync_records = {
+        r.thing_id: r
+        for r in db.query(ThingiverseSync).all()
     }
 
     page = 1
@@ -59,9 +71,14 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
             thing_name = thing.get("name", f"thing_{thing_id}")
             thing_url = thing.get("public_url", "")
 
-            if thing_id in existing_ids:
+            existing = sync_records.get(thing_id)
+            if existing and existing.status == "DOWNLOADED" and _files_exist(existing.local_path):
                 skipped += 1
                 continue
+
+            if existing:
+                db.delete(existing)
+                db.flush()
 
             try:
                 detail = await thingiverse.get_thing(thing_id)
@@ -84,14 +101,22 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     content = await thingiverse.download_file(stl["download_url"])
                     (thing_dir / stl["name"]).write_bytes(content)
 
-                product = Product(
-                    title=thing_name,
-                    description=description,
-                    thing_id=thing_id,
-                    thing_url=thing_url,
-                    local_path=str(thing_dir),
-                )
-                db.add(product)
+                existing_product = db.query(Product).filter(Product.thing_id == thing_id).first()
+                if existing_product:
+                    product = existing_product
+                    product.title = thing_name
+                    product.description = description
+                    product.thing_url = thing_url
+                    product.local_path = str(thing_dir)
+                else:
+                    product = Product(
+                        title=thing_name,
+                        description=description,
+                        thing_id=thing_id,
+                        thing_url=thing_url,
+                        local_path=str(thing_dir),
+                    )
+                    db.add(product)
                 db.flush()
 
                 try:
@@ -99,23 +124,40 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                 except Exception:
                     tv_images = []
 
+                existing_images = {
+                    img.original_url: img
+                    for img in db.query(ProductImage).filter(
+                        ProductImage.product_id == product.id,
+                        ProductImage.source == "thingiverse",
+                    ).all()
+                }
+
                 for idx, img in enumerate(tv_images):
                     try:
                         img_url = img.get("sizes", {}).get("large", {}).get("url") or img.get("url", "")
                         if not img_url:
                             continue
+
+                        if img_url in existing_images:
+                            continue
+
                         img_data = await thingiverse.download_file(img_url)
                         ext = ".jpg"
                         img_filename = f"{safe_name}_{idx}{ext}"
                         img_path = images_dir / img_filename
                         img_path.write_bytes(img_data)
 
+                        has_primary = db.query(ProductImage).filter(
+                            ProductImage.product_id == product.id,
+                            ProductImage.is_primary == True,
+                        ).first()
+
                         product_image = ProductImage(
                             product_id=product.id,
                             file_path=str(img_path),
                             original_url=img_url,
                             source="thingiverse",
-                            is_primary=(idx == 0),
+                            is_primary=(not has_primary and idx == 0),
                         )
                         db.add(product_image)
                     except Exception:
@@ -129,7 +171,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     status="DOWNLOADED",
                 )
                 db.add(sync_record)
-                existing_ids.add(thing_id)
+                sync_records[thing_id] = sync_record
                 downloaded += 1
 
             except Exception:
@@ -141,6 +183,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     status="FAILED",
                 )
                 db.add(sync_record)
+                sync_records[thing_id] = sync_record
                 failed += 1
 
         page += 1

@@ -1,12 +1,32 @@
 """Client API Thingiverse - busca collections, things, detalhes e download de STLs."""
 
+import json
+from pathlib import Path
+
 import httpx
 
 from ..config import THINGIVERSE_APP_TOKEN, THINGIVERSE_BASE_URL
 
 
+def _load_settings_token() -> str:
+    """Carrega token das configurações salvas."""
+    settings_path = Path(__file__).resolve().parent.parent / "settings.json"
+    if settings_path.exists():
+        data = json.loads(settings_path.read_text())
+        token = data.get("integrations", {}).get("thingiverse_app_token", "")
+        if token:
+            return token
+    return ""
+
+
+def _get_token() -> str:
+    """Retorna token: settings > .env."""
+    settings_token = _load_settings_token()
+    return settings_token or THINGIVERSE_APP_TOKEN
+
+
 def _headers() -> dict:
-    return {"Authorization": f"Bearer {THINGIVERSE_APP_TOKEN}"}
+    return {"Authorization": f"Bearer {_get_token()}"}
 
 
 async def get_collection_things(collection_id: int, page: int = 1, per_page: int = 30) -> list:

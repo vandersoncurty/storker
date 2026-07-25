@@ -159,6 +159,13 @@ function ThingiverseTab({ data, onChange }) {
 
       <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
         <Field
+          label="App Token (Thingiverse API Key)"
+          value={data?.thingiverse_app_token || ''}
+          onChange={(v) => onChange('thingiverse_app_token', v)}
+          placeholder="Se vazio, usa THINGIVERSE_APP_TOKEN do .env"
+          type="password"
+        />
+        <Field
           label="Diretório de Download"
           value={data?.thingiverse_download_dir || ''}
           onChange={(v) => onChange('thingiverse_download_dir', v)}

@@ -81,6 +81,7 @@ class SettingsIntegrations(BaseModel):
     spoolman_url: str = "http://localhost:7912"
     thingiverse_download_dir: str = "data/thingiverse_models"
     thingiverse_sync_interval: int = 0  # minutos, 0 = desligado
+    thingiverse_app_token: str = ""  # vazio = usar THINGIVERSE_APP_TOKEN do .env
 
 
 class Settings(BaseModel):
