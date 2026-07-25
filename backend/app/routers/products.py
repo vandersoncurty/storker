@@ -29,9 +29,20 @@ def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)
 
 
 @router.get("/", response_model=List[schemas.ProductResponse])
-def list_products(skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
+def list_products(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    search: str = Query(None, description="Filtro por título (case-insensitive)"),
+    is_sliced: bool = Query(None, description="Filtrar por status de fatiamento"),
+    db: Session = Depends(get_db),
+):
     """Lista todos os produtos, ordenados por data de criação (mais recente primeiro)."""
-    return db.query(models.Product).order_by(models.Product.created_at.desc()).offset(skip).limit(limit).all()
+    q = db.query(models.Product)
+    if search:
+        q = q.filter(models.Product.title.ilike(f"%{search}%"))
+    if is_sliced is not None:
+        q = q.filter(models.Product.is_sliced == is_sliced)
+    return q.order_by(models.Product.created_at.desc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{product_id}", response_model=schemas.ProductResponse)

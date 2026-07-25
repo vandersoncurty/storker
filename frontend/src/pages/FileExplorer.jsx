@@ -98,6 +98,18 @@ export default function FileExplorer() {
     setContextMenu(null);
   };
 
+  const handleDeleteProject = async (project) => {
+    if (!confirm(`Remover projeto "${project.title || project.name}" permanentemente?`)) return;
+    try {
+      await axios.delete(`${API_URL}/stl/projects/${project.id}`);
+      showMessage('Projeto removido!');
+      loadProjects();
+    } catch {
+      showMessage('Erro ao remover projeto', 'error');
+    }
+    setContextMenu(null);
+  };
+
   let filtered = projects;
   if (search) {
     const q = search.toLowerCase();
@@ -235,6 +247,8 @@ export default function FileExplorer() {
           <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
           <MenuItem label="Enviar para fila" icon="M5 12h14m-7-7l7 7-7 7"
             onClick={handleSendToQueue} disabled />
+          <MenuItem label="Excluir projeto" icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            onClick={() => handleDeleteProject(contextMenu.project)} />
         </div>
       )}
 

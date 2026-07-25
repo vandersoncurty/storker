@@ -1,14 +1,16 @@
-"""Router de projetos STL - upload, GCode, download, gerenciamento."""
+"""Router de projetos STL - upload (STLs e ZIPs), GCode, download, gerenciamento."""
 
+import os
 import shutil
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
-from ..config import UPLOADED_MODELS_DIR, GCODES_DIR, THINGIVERSE_MODELS_DIR
+from ..config import UPLOADED_MODELS_DIR, GCODES_DIR
 from ..database import get_db
 from .. import models, schemas
 
@@ -36,7 +38,7 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
 @router.patch("/projects/{project_id}", response_model=schemas.StlProjectResponse)
 def update_project(project_id: int, payload: schemas.StlProjectUpdate, db: Session = Depends(get_db)):
     """Atualiza título/descrição de um projeto.
-    Se title for preenchido, info_pending vira False.
+    Se title for preenchido, info_pending vira False e um Product é criado automaticamente.
     """
     project = db.query(models.StlProject).filter(models.StlProject.id == project_id).first()
     if not project:
@@ -46,11 +48,40 @@ def update_project(project_id: int, payload: schemas.StlProjectUpdate, db: Sessi
         project.info_pending = False
         for f in project.files:
             f.is_sliced = f.file_type == "gcode"
+        existing_product = db.query(models.Product).filter(
+            models.Product.thing_id == project.thing_id if project.thing_id else False
+        ).first()
+        if not existing_product:
+            existing_product = db.query(models.Product).filter(
+                models.Product.title == payload.title
+            ).first()
+        if not existing_product:
+            product = models.Product(
+                title=payload.title,
+                description=payload.description or project.description or "",
+                local_path=project.path,
+                is_sliced=any(f.is_sliced for f in project.files),
+            )
+            db.add(product)
     if payload.description is not None:
         project.description = payload.description
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.delete("/projects/{project_id}")
+def delete_project(project_id: int, db: Session = Depends(get_db)):
+    """Remove um projeto STL, seus arquivos no disco e registros no banco."""
+    project = db.query(models.StlProject).filter(models.StlProject.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    proj_path = Path(project.path)
+    if proj_path.exists():
+        shutil.rmtree(proj_path)
+    db.delete(project)
+    db.commit()
+    return {"detail": "Projeto removido"}
 
 
 @router.post("/projects/{project_id}/link-gcode", response_model=schemas.StlProjectResponse)
@@ -141,18 +172,30 @@ def download_gcode(project_id: int, db: Session = Depends(get_db)):
 
 @router.post("/upload", response_model=schemas.StlProjectResponse)
 async def upload_stl(files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
-    """Upload de um ou mais arquivos STL. Cria um projeto com info_pending=True."""
+    """Upload de um ou mais arquivos STL ou ZIP (contendo STLs). Cria um projeto com info_pending=True."""
     if not files:
         raise HTTPException(status_code=400, detail="Nenhum arquivo enviado")
 
-    stl_files = [f for f in files if f.filename.lower().endswith(".stl")]
-    if not stl_files:
-        raise HTTPException(status_code=400, detail="Apenas arquivos .stl são aceitos")
+    stl_files = []
+    zip_files = []
+    for f in files:
+        name_lower = f.filename.lower()
+        if name_lower.endswith(".stl"):
+            stl_files.append(f)
+        elif name_lower.endswith(".zip"):
+            zip_files.append(f)
 
-    project_name = Path(stl_files[0].filename).stem
-    if len(stl_files) > 1:
-        common = Path(stl_files[0].filename).stem.split("_")[0].split("-")[0][:30]
-        project_name = common if common else "projeto"
+    if not stl_files and not zip_files:
+        raise HTTPException(status_code=400, detail="Aceito apenas .stl e .zip (com .stl dentro)")
+
+    project_name = "projeto"
+    if stl_files:
+        project_name = Path(stl_files[0].filename).stem
+        if len(stl_files) > 1:
+            common = Path(stl_files[0].filename).stem.split("_")[0].split("-")[0][:30]
+            project_name = common if common else "projeto"
+    else:
+        project_name = Path(zip_files[0].filename).stem[:30]
 
     proj_dir = UPLOADED_MODELS_DIR / project_name
     proj_dir.mkdir(parents=True, exist_ok=True)
@@ -165,6 +208,29 @@ async def upload_stl(files: List[UploadFile] = File(...), db: Session = Depends(
     )
     db.add(project)
     db.flush()
+
+    extracted_names = set()
+    for zf in zip_files:
+        z_path = proj_dir / zf.filename
+        content = await zf.read()
+        z_path.write_bytes(content)
+        try:
+            with zipfile.ZipFile(z_path) as z:
+                for member in z.namelist():
+                    if member.lower().endswith(".stl"):
+                        dest = proj_dir / Path(member).name
+                        dest.write_bytes(z.read(member))
+                        if member not in extracted_names:
+                            extracted_names.add(member)
+                            db.add(models.StlFile(
+                                project_id=project.id,
+                                filename=dest.name,
+                                file_path=str(dest),
+                                file_type="stl",
+                            ))
+            z_path.unlink()
+        except zipfile.BadZipFile:
+            raise HTTPException(status_code=400, detail=f"Arquivo inválido: {zf.filename}")
 
     for f in stl_files:
         dest = proj_dir / f.filename

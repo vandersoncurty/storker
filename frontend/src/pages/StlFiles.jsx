@@ -46,16 +46,27 @@ export default function StlFiles() {
       loadProjects();
     } catch {
       showMessage('Erro no upload', 'error');
-      console.error(err);
     } finally {
       setUploading(false);
     }
   };
 
+  const handleDeleteProject = async (e, project) => {
+    e.stopPropagation();
+    if (!confirm(`Remover projeto "${project.title || project.name}"?`)) return;
+    try {
+      await axios.delete(`${API_URL}/stl/projects/${project.id}`);
+      showMessage('Projeto removido!');
+      loadProjects();
+    } catch {
+      showMessage('Erro ao remover projeto', 'error');
+    }
+  };
+
   const handleEditProject = async (id, title, description) => {
     try {
-      await axios.patch(`${API_URL}/stl/projects/${id}`, { title, description });
-      showMessage('Projeto atualizado!');
+      const resp = await axios.patch(`${API_URL}/stl/projects/${id}`, { title, description });
+      showMessage(resp.data.info_pending === false && title ? 'Projeto atualizado! Produto criado automaticamente.' : 'Projeto atualizado!');
       setEditing(null);
       loadProjects();
     } catch {
@@ -100,10 +111,11 @@ export default function StlFiles() {
           <label style={{ display: 'grid', gap: '6px', flex: 1, minWidth: '200px' }}>
             <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-h)' }}>Arquivos STL</span>
             <input
-              type="file" accept=".stl" multiple
+              type="file" accept=".stl,.zip" multiple
               onChange={e => setUploadFiles(Array.from(e.target.files))}
               style={{ padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px' }}
             />
+            <span style={{ fontSize: '12px', color: 'var(--text)', marginTop: '2px' }}>.stl ou .zip com STLs dentro</span>
           </label>
           {uploadFiles && (
             <div style={{ fontSize: '13px', color: 'var(--text)', padding: '8px 0' }}>
@@ -133,7 +145,7 @@ export default function StlFiles() {
         ) : (
           <div style={{ display: 'grid', gap: '4px', padding: '12px' }}>
             {uploadedProjects.map(p => (
-              <ProjectRow key={p.id} project={p} onEdit={setEditing} />
+              <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject} />
             ))}
           </div>
         )}
@@ -151,7 +163,7 @@ export default function StlFiles() {
         ) : (
           <div style={{ display: 'grid', gap: '4px', padding: '12px' }}>
             {thingiverseProjects.map(p => (
-              <ProjectRow key={p.id} project={p} onEdit={setEditing} />
+              <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject} />
             ))}
           </div>
         )}
@@ -168,7 +180,7 @@ export default function StlFiles() {
   );
 }
 
-function ProjectRow({ project, onEdit }) {
+function ProjectRow({ project, onEdit, onDelete }) {
   const hasStl = project.files.some(f => f.file_type === 'stl');
   const hasGcode = project.files.some(f => f.file_type === 'gcode');
 
@@ -224,6 +236,14 @@ function ProjectRow({ project, onEdit }) {
         }}>
           Editar
         </button>
+        {onDelete && (
+          <button onClick={e => onDelete(e, project)} style={{
+            padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--danger)',
+            background: 'transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--danger)',
+          }}>
+            Excluir
+          </button>
+        )}
       </div>
     </div>
   );

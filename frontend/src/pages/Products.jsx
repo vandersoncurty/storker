@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { API_URL } from '../api';
 import ThingiverseIcon from '../components/ThingiverseIcon';
@@ -8,13 +8,17 @@ export default function Products() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterSliced, setFilterSliced] = useState('all');
 
-  useEffect(() => { loadProducts(); }, []);
-
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       setError(null);
-      const res = await axios.get(`${API_URL}/products/`);
+      setLoading(true);
+      const params = {};
+      if (search.trim()) params.search = search.trim();
+      if (filterSliced !== 'all') params.is_sliced = filterSliced === 'sliced';
+      const res = await axios.get(`${API_URL}/products/`, { params });
       setProducts(res.data);
     } catch (err) {
       setError('Erro ao carregar produtos');
@@ -22,9 +26,16 @@ export default function Products() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, filterSliced]);
 
-  if (loading) return <p>Carregando...</p>;
+  useEffect(() => { loadProducts(); }, [loadProducts]);
+
+  useEffect(() => {
+    const timer = setTimeout(loadProducts, 300);
+    return () => clearTimeout(timer);
+  }, [search, filterSliced, loadProducts]);
+
+  if (loading && products.length === 0) return <p>Carregando...</p>;
   if (error) {
     return (
       <div>
@@ -41,9 +52,32 @@ export default function Products() {
     <div>
       <h1>Produtos</h1>
       <p style={{ color: 'var(--text)', marginBottom: '24px' }}>{products.length} produto(s) no catálogo</p>
+
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <input
+          type="text" placeholder="Buscar por título..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          style={{
+            flex: 1, minWidth: '200px', padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)', fontSize: '14px',
+          }}
+          onFocus={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+          onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+        />
+        <select value={filterSliced} onChange={e => setFilterSliced(e.target.value)}
+          style={{
+            padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+            fontSize: '14px', background: 'var(--bg)', cursor: 'pointer', minWidth: '140px',
+          }}>
+          <option value="all">Todos</option>
+          <option value="sliced">Fatiados</option>
+          <option value="unsliced">Não fatiados</option>
+        </select>
+      </div>
+
       {products.length === 0 ? (
         <p style={{ color: 'var(--text)', padding: '40px 0', textAlign: 'center' }}>
-          Nenhum produto. Sincronize coleções no Thingiverse para importar modelos.
+          {search || filterSliced !== 'all' ? 'Nenhum produto encontrado com esses filtros.' : 'Nenhum produto. Faça upload de STLs e defina título para criar produtos automaticamente.'}
         </p>
       ) : (
         <div style={{
@@ -217,6 +251,29 @@ function EditModal({ product, onClose, onRefresh }) {
     }
   };
 
+  const handleDeleteImage = async (image) => {
+    if (!confirm(`Remover esta imagem?`)) return;
+    try {
+      await axios.delete(`${API_URL}/products/${product.id}/images/${image.id}`);
+      showMessage('Imagem removida');
+      onRefresh();
+    } catch {
+      showMessage('Erro ao remover imagem', 'error');
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!confirm(`Remover produto "${product.title}" permanentemente?`)) return;
+    try {
+      await axios.delete(`${API_URL}/products/${product.id}`);
+      showMessage('Produto removido');
+      onRefresh();
+      onClose();
+    } catch {
+      showMessage('Erro ao remover produto', 'error');
+    }
+  };
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
@@ -324,13 +381,12 @@ function EditModal({ product, onClose, onRefresh }) {
                     <div key={img.id} style={{
                       aspectRatio: '1', borderRadius: 'var(--radius-sm)', overflow: 'hidden',
                       border: img.is_primary ? '2px solid var(--accent)' : '1px solid var(--border)',
-                      position: 'relative', cursor: 'pointer',
+                      position: 'relative', cursor: 'default',
                       transition: 'all 0.15s',
-                    }}
-                      onClick={() => handleSetPrimary(img.id)}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-border)'; }}
-                      onMouseLeave={e => { if (!img.is_primary) e.currentTarget.style.borderColor = 'var(--border)'; }}>
-                      <img src={imgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    }}>
+                      <img src={imgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        onClick={() => handleSetPrimary(img.id)}
+                      />
                       {img.source === 'thingiverse' && (
                         <span style={{
                           position: 'absolute', top: '3px', left: '3px',
@@ -348,6 +404,19 @@ function EditModal({ product, onClose, onRefresh }) {
                           fontWeight: '600',
                         }}>Principal</span>
                       )}
+                      <button onClick={() => handleDeleteImage(img)} style={{
+                        position: 'absolute', top: '3px', right: '3px',
+                        width: '18px', height: '18px', borderRadius: '50%',
+                        border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff',
+                        cursor: 'pointer', fontSize: '10px', lineHeight: '1',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: 0, opacity: '0.7',
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                        title="Remover imagem">
+                        ✕
+                      </button>
                     </div>
                   );
                 })}
@@ -361,7 +430,14 @@ function EditModal({ product, onClose, onRefresh }) {
           padding: '16px 24px', borderTop: '1px solid var(--border)',
           justifyContent: 'space-between',
         }}>
-          <div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button onClick={handleDeleteProduct} style={{
+              padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--danger)',
+              background: 'transparent', cursor: 'pointer', fontSize: '13px',
+              color: 'var(--danger)', fontWeight: '500',
+            }}>
+              Excluir produto
+            </button>
             {message && (
               <span style={{ color: messageType === 'success' ? 'var(--success)' : 'var(--danger)', fontSize: '14px', fontWeight: '500' }}>
                 {message}
