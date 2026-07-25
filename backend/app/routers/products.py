@@ -1,3 +1,5 @@
+"""Router de produtos - CRUD, imagens e gestão de catálogo."""
+
 import shutil
 import uuid
 from pathlib import Path
@@ -15,6 +17,7 @@ router = APIRouter(prefix="/products", tags=["products"])
 
 @router.post("/", response_model=schemas.ProductResponse)
 def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)):
+    """Cria um novo produto no catálogo."""
     db_product = models.Product(**product.model_dump())
     db.add(db_product)
     db.commit()
@@ -24,11 +27,13 @@ def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)
 
 @router.get("/", response_model=List[schemas.ProductResponse])
 def list_products(db: Session = Depends(get_db)):
+    """Lista todos os produtos, ordenados por data de criação (mais recente primeiro)."""
     return db.query(models.Product).order_by(models.Product.created_at.desc()).all()
 
 
 @router.get("/{product_id}", response_model=schemas.ProductResponse)
 def get_product(product_id: int, db: Session = Depends(get_db)):
+    """Busca um produto por ID, incluindo suas imagens."""
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
@@ -37,6 +42,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{product_id}", response_model=schemas.ProductResponse)
 def update_product(product_id: int, payload: schemas.ProductUpdate, db: Session = Depends(get_db)):
+    """Atualiza campos de um produto. Apenas campos enviados são alterados (PATCH parcial)."""
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
@@ -49,6 +55,7 @@ def update_product(product_id: int, payload: schemas.ProductUpdate, db: Session 
 
 @router.delete("/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
+    """Remove um produto e todas as suas imagens."""
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
@@ -59,6 +66,7 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{product_id}/images/upload", response_model=schemas.ProductImageResponse)
 async def upload_image(product_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Envia uma imagem para o produto. Se for a primeira imagem, ela vira a principal automaticamente."""
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
@@ -90,6 +98,7 @@ async def upload_image(product_id: int, file: UploadFile = File(...), db: Sessio
 
 @router.patch("/{product_id}/images/{image_id}/primary")
 def set_primary_image(product_id: int, image_id: int, db: Session = Depends(get_db)):
+    """Define uma imagem como principal do produto. Desfaz a marcação da anterior."""
     image = db.query(models.ProductImage).filter(
         models.ProductImage.id == image_id,
         models.ProductImage.product_id == product_id,
@@ -108,6 +117,7 @@ def set_primary_image(product_id: int, image_id: int, db: Session = Depends(get_
 
 @router.delete("/{product_id}/images/{image_id}")
 def delete_image(product_id: int, image_id: int, db: Session = Depends(get_db)):
+    """Remove uma imagem do produto. Se era a principal, a próxima vira principal."""
     image = db.query(models.ProductImage).filter(
         models.ProductImage.id == image_id,
         models.ProductImage.product_id == product_id,

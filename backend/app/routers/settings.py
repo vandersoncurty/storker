@@ -1,40 +1,32 @@
-import json
-from pathlib import Path
+"""Router de configurações - leitura e escrita de settings do sistema."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
-from ..schemas import Settings, SettingsIntegrations
+from ..database import get_db
+from .. import schemas
+from .settings_file import load_settings, save_settings
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
-SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
 
-
-def _load() -> Settings:
-    if SETTINGS_FILE.exists():
-        data = json.loads(SETTINGS_FILE.read_text())
-        return Settings(**data)
-    return Settings()
-
-
-def _save(settings: Settings) -> None:
-    SETTINGS_FILE.write_text(settings.model_dump_json(indent=2))
-
-
-@router.get("/", response_model=Settings)
+@router.get("/", response_model=schemas.Settings)
 def get_settings():
-    return _load()
+    """Retorna todas as configurações do sistema."""
+    return load_settings()
 
 
-@router.put("/", response_model=Settings)
-def update_settings(payload: Settings):
-    _save(payload)
+@router.put("/", response_model=schemas.Settings)
+def update_settings(payload: schemas.Settings):
+    """Substitui todas as configurações do sistema."""
+    save_settings(payload)
     return payload
 
 
-@router.patch("/integrations", response_model=SettingsIntegrations)
-def update_integrations(payload: SettingsIntegrations):
-    settings = _load()
+@router.patch("/integrations", response_model=schemas.SettingsIntegrations)
+def update_integrations(payload: schemas.SettingsIntegrations):
+    """Atualiza apenas as configurações de integrações (PATCH parcial)."""
+    settings = load_settings()
     settings.integrations = payload
-    _save(settings)
+    save_settings(settings)
     return settings.integrations

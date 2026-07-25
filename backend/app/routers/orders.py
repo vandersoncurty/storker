@@ -1,3 +1,5 @@
+"""Router de pedidos - CRUD e gerenciamento de status."""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +13,7 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 @router.post("/", response_model=schemas.OrderResponse)
 def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
+    """Cria um novo pedido. O shopee_order_id deve ser único."""
     existing = db.query(models.Order).filter(
         models.Order.shopee_order_id == order.shopee_order_id
     ).first()
@@ -25,11 +28,13 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=List[schemas.OrderResponse])
 def list_orders(db: Session = Depends(get_db)):
+    """Lista todos os pedidos."""
     return db.query(models.Order).all()
 
 
 @router.get("/{order_id}", response_model=schemas.OrderResponse)
 def get_order(order_id: int, db: Session = Depends(get_db)):
+    """Busca um pedido por ID."""
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
@@ -38,6 +43,7 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{order_id}/status", response_model=schemas.OrderResponse)
 def update_order_status(order_id: int, status: str, db: Session = Depends(get_db)):
+    """Atualiza o status de um pedido. Valores válidos: PENDING, PRINTING, DONE, SHIPPED."""
     valid = {"PENDING", "PRINTING", "DONE", "SHIPPED"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Status inválido. Use: {valid}")

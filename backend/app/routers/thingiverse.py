@@ -1,3 +1,5 @@
+"""Router Thingiverse - gerenciamento de collections e sincronização."""
+
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,11 +20,13 @@ router = APIRouter(prefix="/thingiverse", tags=["thingiverse"])
 
 @router.get("/collections", response_model=List[ThingiverseCollectionResponse])
 def list_collections(db: Session = Depends(get_db)):
+    """Lista todas as collections Thingiverse configuradas para sincronização."""
     return db.query(ThingiverseCollectionConfig).all()
 
 
 @router.post("/collections", response_model=ThingiverseCollectionResponse)
 def add_collection(payload: ThingiverseCollectionCreate, db: Session = Depends(get_db)):
+    """Adiciona uma collection do Thingiverse para sincronização. Informe o collection_id."""
     existing = db.query(ThingiverseCollectionConfig).filter(
         ThingiverseCollectionConfig.collection_id == payload.collection_id
     ).first()
@@ -37,6 +41,7 @@ def add_collection(payload: ThingiverseCollectionCreate, db: Session = Depends(g
 
 @router.delete("/collections/{collection_id}")
 def remove_collection(collection_id: int, db: Session = Depends(get_db)):
+    """Remove uma collection da lista de sincronização."""
     cfg = db.query(ThingiverseCollectionConfig).filter(
         ThingiverseCollectionConfig.collection_id == collection_id
     ).first()
@@ -49,11 +54,13 @@ def remove_collection(collection_id: int, db: Session = Depends(get_db)):
 
 @router.get("/downloads", response_model=List[ThingiverseSyncResponse])
 def list_downloads(db: Session = Depends(get_db)):
+    """Lista todos os things baixados do Thingiverse, com status e data."""
     return db.query(ThingiverseSync).order_by(ThingiverseSync.synced_at.desc()).all()
 
 
 @router.post("/sync", response_model=SyncResponse)
 async def trigger_sync(db: Session = Depends(get_db)):
+    """Dispara sincronização de todas as collections configuradas. Baixa STLs e imagens, cria Products."""
     results = await sync.sync_all(db)
     total_downloaded = sum(r.downloaded for r in results)
     total_skipped = sum(r.skipped for r in results)
@@ -68,6 +75,7 @@ async def trigger_sync(db: Session = Depends(get_db)):
 
 @router.post("/sync/{collection_id}", response_model=SyncResponse)
 async def trigger_sync_collection(collection_id: int, db: Session = Depends(get_db)):
+    """Dispara sincronização de uma collection específica."""
     result = await sync.sync_collection(collection_id, db)
     return SyncResponse(
         results=[result],
