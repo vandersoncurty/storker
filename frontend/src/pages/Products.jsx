@@ -992,7 +992,7 @@ function EditModal({ product, onClose, onRefresh }) {
                 <label style={{ display: 'grid', gap: '4px' }}>
                   <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>R$/kg</span>
                   <input type="number" value={newVariantPrice} onChange={e => setNewVariantPrice(e.target.value)}
-                    placeholder="100" style={{
+                    placeholder="auto" style={{
                       padding: '6px 10px', borderRadius: 'var(--radius-sm)',
                       border: '1px solid var(--border)', fontSize: '13px',
                     }} />
