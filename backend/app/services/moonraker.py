@@ -49,7 +49,7 @@ async def post_job_queue(filename: str) -> dict:
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         response = await client.post(
             f"{_get_url()}/server/job_queue/job",
-            json={"filename": filename},
+            json={"filenames": [filename], "reset": False},
         )
         response.raise_for_status()
         return response.json()
