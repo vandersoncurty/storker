@@ -338,6 +338,16 @@ export default function FileExplorer() {
           project={editing}
           onClose={() => setEditing(null)}
           onSave={handleEditProject}
+          onGcodeLinked={async (projectId) => {
+            try {
+              const res = await api.get(`${API_URL}/stl/projects/${projectId}`);
+              setEditing(res.data);
+              loadProjects();
+              showMessage('GCode vinculado com sucesso!');
+            } catch {
+              showMessage('Erro ao recarregar projeto', 'error');
+            }
+          }}
         />
       )}
 
@@ -538,10 +548,12 @@ function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode,
   );
 }
 
-function EditProjectModal({ project, onClose, onSave }) {
+function EditProjectModal({ project, onClose, onSave, onGcodeLinked }) {
   const [title, setTitle] = useState(project.title || project.name);
   const [description, setDescription] = useState(project.description || '');
   const [viewingStl, setViewingStl] = useState(null);
+  const [linkingStlId, setLinkingStlId] = useState(null);
+  const [gcodeMsg, setGcodeMsg] = useState(null);
 
   const stlFiles = project.files.filter(f => f.file_type === 'stl');
 
@@ -555,14 +567,18 @@ function EditProjectModal({ project, onClose, onSave }) {
   const handleLinkGcodeStl = async (e, stlId) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setLinkingStlId(stlId);
+    setGcodeMsg(null);
     const formData = new FormData();
     formData.append('file', file);
     try {
       await api.post(`${API_URL}/stl/projects/${project.id}/link-gcode?stl_file_id=${stlId}`, formData);
-      alert('GCode vinculado!');
-      window.location.reload();
-    } catch {
-      alert('Erro ao vincular GCode');
+      if (onGcodeLinked) await onGcodeLinked(project.id);
+    } catch (err) {
+      setGcodeMsg(err.response?.data?.detail || 'Erro ao vincular GCode');
+    } finally {
+      setLinkingStlId(null);
+      e.target.value = '';
     }
   };
 
@@ -625,7 +641,10 @@ function EditProjectModal({ project, onClose, onSave }) {
                   }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
                   </button>
-                  {!gcode && (
+                  {!gcode && linkingStlId === f.id && (
+                    <span style={{ fontSize: '11px', color: 'var(--text)' }}>Enviando...</span>
+                  )}
+                  {!gcode && linkingStlId !== f.id && (
                     <label style={{
                       padding: '2px 8px', borderRadius: '3px', border: '1px solid var(--accent)',
                       background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
@@ -636,14 +655,23 @@ function EditProjectModal({ project, onClose, onSave }) {
                       />
                     </label>
                   )}
+                  {gcode && linkingStlId === f.id && (
+                    <span style={{ fontSize: '11px', color: 'var(--text)' }}>Atualizando...</span>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center' }}>
-          {!allStlsHaveGcode && stlFiles.length > 0 && (
+          {gcodeMsg && (
+            <span style={{ fontSize: '12px', color: 'var(--danger)', flex: 1 }}>{gcodeMsg}</span>
+          )}
+          {!gcodeMsg && !allStlsHaveGcode && stlFiles.length > 0 && (
             <span style={{ fontSize: '12px', color: 'var(--danger)', flex: 1 }}>Vincule GCode a todos os STLs para criar o produto</span>
+          )}
+          {!gcodeMsg && allStlsHaveGcode && stlFiles.length > 0 && (
+            <span style={{ fontSize: '12px', color: 'var(--success)', flex: 1 }}>Todos os STLs possuem GCode ✓</span>
           )}
           <button onClick={onClose} style={{
             padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
