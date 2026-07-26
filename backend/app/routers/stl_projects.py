@@ -15,7 +15,7 @@ from ..database import get_db
 from .. import models, schemas
 from ..paths import rel, abs_path
 from ..services.settings_file import load_settings
-from ..services.moonraker import upload_file_to_moonraker, start_print
+from ..services.moonraker import upload_file_to_moonraker, post_job_queue, start_print
 from .costs import parse_gcode_text, estimate_cost, CostEstimate
 
 router = APIRouter(prefix="/stl", tags=["stl"])
@@ -265,11 +265,17 @@ async def send_to_printer(project_id: int, start: bool = Query(False, descriptio
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Erro ao enviar para Moonraker: {e}")
 
-    result = {"detail": "GCode enviado para Moonraker", "filename": gcode_file.filename}
+    moonraker_path = f"Storker/{gcode_file.filename}"
+    try:
+        await post_job_queue(moonraker_path)
+    except Exception:
+        pass
+
+    result = {"detail": f"GCode enviado para Moonraker e adicionado à fila", "filename": gcode_file.filename}
 
     if start:
         try:
-            await start_print(gcode_file.filename)
+            await start_print(moonraker_path)
             result["detail"] = f"Impressão de {gcode_file.filename} iniciada"
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Erro ao iniciar impressão: {e}")

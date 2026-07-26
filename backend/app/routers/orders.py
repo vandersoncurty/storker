@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload, subqueryload
 from ..database import get_db
 from .. import models, schemas
 from ..paths import abs_path
-from ..services.moonraker import upload_file_to_moonraker, start_print
+from ..services.moonraker import upload_file_to_moonraker, post_job_queue
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -201,6 +201,10 @@ async def send_order_to_printer(order_id: int, db: Session = Depends(get_db)):
                 continue
             try:
                 await upload_file_to_moonraker(gf.filename, str(gcode_path))
+                try:
+                    await post_job_queue(f"Storker/{gf.filename}")
+                except Exception:
+                    pass
                 sent.append(gf.filename)
             except Exception as e:
                 errors.append(f"{gf.filename}: {e}")

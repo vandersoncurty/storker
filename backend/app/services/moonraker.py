@@ -62,12 +62,14 @@ async def get_directory(directory: str = "gcodes") -> dict:
         return response.json()
 
 
-async def upload_file_to_moonraker(filename: str, filepath: str) -> dict:
+async def upload_file_to_moonraker(filename: str, filepath: str, subdir: str = "Storker") -> dict:
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=3.0)) as client:
         with open(filepath, "rb") as f:
+            data = {"path": subdir} if subdir else {}
             response = await client.post(
                 f"{_get_url()}/server/files/upload",
                 files={"file": (filename, f, "application/octet-stream")},
+                data=data,
             )
         response.raise_for_status()
         return response.json()
