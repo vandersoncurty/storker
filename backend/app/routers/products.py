@@ -290,7 +290,7 @@ def update_variant(product_id: int, variant_id: int, payload: schemas.ProductVar
 
     recalc = any(x is not None for x in [
         payload.filament_price_per_kg, payload.production_cost,
-        payload.sale_price, payload.batch_size, payload.additional_cost,
+        payload.batch_size, payload.additional_cost,
         payload.shopee,
     ])
     if recalc or not variant.production_cost or not variant.sale_price:
@@ -302,10 +302,7 @@ def update_variant(product_id: int, variant_id: int, payload: schemas.ProductVar
             variant.production_cost = payload.production_cost
         else:
             variant.production_cost = prices["production_cost"]
-        if payload.sale_price is not None:
-            variant.sale_price = payload.sale_price
-        else:
-            variant.sale_price = prices["sale_price"]
+        variant.sale_price = prices["sale_price"]
 
     db.commit()
     db.refresh(variant)

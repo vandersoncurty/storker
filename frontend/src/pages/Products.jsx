@@ -570,7 +570,6 @@ function EditModal({ product, onClose, onRefresh }) {
       additional_cost: v.additional_cost || 0,
       shopee: v.shopee || false,
       production_cost: v.production_cost ?? '',
-      sale_price: v.sale_price ?? '',
     });
     setEditingVariantId(v.id);
   };
@@ -596,9 +595,6 @@ function EditModal({ product, onClose, onRefresh }) {
       };
       if (editVariantForm.production_cost !== '') {
         payload.production_cost = parseFloat(editVariantForm.production_cost);
-      }
-      if (editVariantForm.sale_price !== '') {
-        payload.sale_price = parseFloat(editVariantForm.sale_price);
       }
       const res = await api.patch(`${API_URL}/products/${product.id}/variants/${editingVariantId}`, payload);
       setVariants(prev => prev.map(x => x.id === editingVariantId ? res.data : x));
@@ -883,12 +879,12 @@ function EditModal({ product, onClose, onRefresh }) {
                               onChange={e => updateEditField('production_cost', e.target.value)}
                               placeholder="auto" style={{ width: '70px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </label>
-                          <label style={{ display: 'grid', gap: '2px' }}>
-                            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text)' }}>Venda (R$)</span>
-                            <input type="number" step="0.01" value={editVariantForm.sale_price}
-                              onChange={e => updateEditField('sale_price', e.target.value)}
-                              placeholder="auto" style={{ width: '70px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
-                          </label>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text)' }}>Venda</div>
+                            <div style={{ fontWeight: 700, color: editVariantPreview?.shopee_result ? '#ee4d2d' : 'var(--accent)', fontSize: '13px' }}>
+                              R$ {editVariantPreview?.sale_price?.toFixed(2) ?? editVariantPreview?.sale_price ?? '—'}
+                            </div>
+                          </div>
                         </div>
                         {editVariantPreview && (
                           <div style={{
