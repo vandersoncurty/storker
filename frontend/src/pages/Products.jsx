@@ -298,6 +298,8 @@ function EditModal({ product, onClose, onRefresh }) {
   const [newVariantBatchSize, setNewVariantBatchSize] = useState(1);
   const [newVariantAdditionalCost, setNewVariantAdditionalCost] = useState('');
   const [newVariantShopee, setNewVariantShopee] = useState(false);
+  const [addVariantPreview, setAddVariantPreview] = useState(null);
+  const [editVariantPreview, setEditVariantPreview] = useState(null);
   const [addingVariant, setAddingVariant] = useState(false);
   const [spools, setSpools] = useState([]);
   const [spoolsLoading, setSpoolsLoading] = useState(true);
@@ -311,6 +313,49 @@ function EditModal({ product, onClose, onRefresh }) {
       setSpools(res.data.spools || []);
     }).catch(() => {}).finally(() => setSpoolsLoading(false));
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const payload = {
+        filament_grams: parseFloat(form.filament_grams) || 0,
+        print_time_seconds: parseTime(form.print_time),
+        filament_price_per_kg: parseFloat(newVariantPrice) || 0,
+        taxes_fees: parseFloat(form.taxes_fees) || 0,
+        batch_size: newVariantSellInBatch ? (parseInt(newVariantBatchSize) || 1) : 1,
+        additional_cost: parseFloat(newVariantAdditionalCost) || 0,
+        shopee: newVariantShopee,
+      };
+      api.post(`${API_URL}/costs/variant-estimate`, payload).then(res => {
+        setAddVariantPreview(res.data);
+      }).catch(() => setAddVariantPreview(null));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [newVariantPrice, newVariantSellInBatch, newVariantBatchSize,
+      newVariantAdditionalCost, newVariantShopee,
+      form.filament_grams, form.print_time, form.taxes_fees]);
+
+  useEffect(() => {
+    if (editingVariantId === null) { setEditVariantPreview(null); return; }
+    const timer = setTimeout(() => {
+      const ef = editVariantForm;
+      const payload = {
+        filament_grams: parseFloat(form.filament_grams) || 0,
+        print_time_seconds: parseTime(form.print_time),
+        filament_price_per_kg: parseFloat(ef.filament_price_per_kg) || 0,
+        taxes_fees: parseFloat(form.taxes_fees) || 0,
+        batch_size: ef.sell_in_batch ? (parseInt(ef.batch_size) || 1) : 1,
+        additional_cost: parseFloat(ef.additional_cost) || 0,
+        shopee: ef.shopee || false,
+      };
+      api.post(`${API_URL}/costs/variant-estimate`, payload).then(res => {
+        setEditVariantPreview(res.data);
+      }).catch(() => setEditVariantPreview(null));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [editingVariantId, editVariantForm.filament_price_per_kg,
+      editVariantForm.sell_in_batch, editVariantForm.batch_size,
+      editVariantForm.additional_cost, editVariantForm.shopee,
+      form.filament_grams, form.print_time, form.taxes_fees]);
 
   const showMessage = (text, type = 'success') => {
     setMessage(text);
@@ -845,6 +890,23 @@ function EditModal({ product, onClose, onRefresh }) {
                               placeholder="auto" style={{ width: '70px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </label>
                         </div>
+                        {editVariantPreview && (
+                          <div style={{
+                            fontSize: '11px', padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+                            background: 'var(--bg)', border: '1px solid var(--border)',
+                            display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap',
+                          }}>
+                            <span>Custo: <strong>R$ {editVariantPreview.production_cost}</strong></span>
+                            <span>Venda: <strong style={{ color: editVariantPreview.shopee_result ? '#ee4d2d' : 'var(--accent)' }}>R$ {editVariantPreview.sale_price}</strong></span>
+                            {editVariantPreview.shopee_result && (
+                              <>
+                                <span style={{ color: 'var(--text)' }}>Taxa: R$ {editVariantPreview.shopee_result.shopee_fee}</span>
+                                <span style={{ color: 'var(--success)' }}>Lucro: R$ {editVariantPreview.shopee_result.net_profit}</span>
+                                <span>({editVariantPreview.shopee_result.actual_margin_pct}%)</span>
+                              </>
+                            )}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                           <button onClick={handleCancelEditVariant} style={{
                             padding: '4px 12px', borderRadius: 'var(--radius-sm)',
@@ -978,6 +1040,23 @@ function EditModal({ product, onClose, onRefresh }) {
                           border: '1px solid var(--border)', fontSize: '13px', }} />
                     </label>
                   </>
+                )}
+                {addVariantPreview && (
+                  <div style={{
+                    fontSize: '12px', padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg)', border: '1px solid var(--border)',
+                    display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap',
+                  }}>
+                    <span>Custo: <strong>R$ {addVariantPreview.production_cost}</strong></span>
+                    <span>Venda: <strong style={{ color: addVariantPreview.shopee_result ? '#ee4d2d' : 'var(--accent)' }}>R$ {addVariantPreview.sale_price}</strong></span>
+                    {addVariantPreview.shopee_result && (
+                      <>
+                        <span style={{ color: 'var(--text)' }}>Taxa: R$ {addVariantPreview.shopee_result.shopee_fee}</span>
+                        <span style={{ color: 'var(--success)' }}>Lucro: R$ {addVariantPreview.shopee_result.net_profit}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text)' }}>({addVariantPreview.shopee_result.actual_margin_pct}%)</span>
+                      </>
+                    )}
+                  </div>
                 )}
                 <button onClick={handleAddVariant} disabled={addingVariant || !newVariantName.trim()} style={{
                   marginLeft: 'auto', padding: '6px 16px', borderRadius: 'var(--radius-sm)',

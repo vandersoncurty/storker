@@ -60,6 +60,22 @@ class ShopeeResult(BaseModel):
     commission_cap_applied: bool
 
 
+class VariantEstimateRequest(BaseModel):
+    filament_grams: float = 0
+    print_time_seconds: int = 0
+    filament_price_per_kg: float = 0.0
+    taxes_fees: float = 0.0
+    batch_size: int = 1
+    additional_cost: float = 0.0
+    shopee: bool = False
+
+
+class VariantEstimateResponse(BaseModel):
+    production_cost: float
+    sale_price: float
+    shopee_result: Optional[ShopeeResult] = None
+
+
 @router.post("/estimate", response_model=CostResult)
 def estimate_cost(payload: CostEstimate):
     hours = payload.print_time_seconds / 3600
@@ -152,6 +168,47 @@ def apply_shopee_price(product_id: int, payload: ShopeeEstimate, db: Session = D
         "sale_price": product.sale_price,
         "shopee_result": result.model_dump(),
     }
+
+
+@router.post("/variant-estimate", response_model=VariantEstimateResponse)
+def estimate_variant(payload: VariantEstimateRequest):
+    settings = load_settings()
+    costs = settings.costs
+    base = estimate_cost(CostEstimate(
+        filament_grams=payload.filament_grams,
+        print_time_seconds=payload.print_time_seconds,
+        filament_price_per_kg=payload.filament_price_per_kg,
+        printer_watts=costs.printer_watts,
+        kwh_rate=costs.kwh_rate,
+        labor_cost_per_hour=costs.labor_cost_per_hour,
+        fixed_cost_per_print=costs.fixed_cost_per_print,
+        ecommerce_fee_percent=costs.ecommerce_fee_percent,
+        profit_margin_percent=costs.profit_margin_percent,
+        taxes_fees=payload.taxes_fees,
+    ))
+    batch_prod_cost = base.production_cost * payload.batch_size + payload.additional_cost
+
+    if payload.shopee:
+        shopee_payload = ShopeeEstimate(
+            production_cost=batch_prod_cost,
+            profit_margin_percent=costs.profit_margin_percent,
+            shopee_commission_pct=costs.shopee_commission_pct,
+            shopee_fixed_fee=costs.shopee_fixed_fee,
+            shopee_commission_cap=costs.shopee_commission_cap,
+            shopee_tax_pct=costs.shopee_tax_pct,
+        )
+        sr = calculate_shopee_price(shopee_payload)
+        return VariantEstimateResponse(
+            production_cost=round(batch_prod_cost, 2),
+            sale_price=sr.sale_price,
+            shopee_result=sr,
+        )
+
+    final_price = base.final_price * payload.batch_size + payload.additional_cost
+    return VariantEstimateResponse(
+        production_cost=round(batch_prod_cost, 2),
+        sale_price=round(final_price, 2),
+    )
 
 
 @router.post("/apply/{product_id}")
