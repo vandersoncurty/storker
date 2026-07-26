@@ -16,6 +16,7 @@ test.db
 # App data
 backend/data/thingiverse_models/
 backend/data/product_images/
+backend/data/gcodes/
 backend/data/config/storker.conf
 backend/app/settings.json
 backend/settings.json
