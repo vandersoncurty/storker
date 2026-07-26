@@ -4,6 +4,7 @@ import { API_URL } from '../api';
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [charts, setCharts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -15,8 +16,12 @@ export default function Dashboard() {
     try {
       setError(null);
       setLoading(true);
-      const resp = await axios.get(`${API_URL}/dashboard/`);
+      const [resp, chartResp] = await Promise.all([
+        axios.get(`${API_URL}/dashboard/`),
+        axios.get(`${API_URL}/dashboard/charts`),
+      ]);
       setData(resp.data);
+      setCharts(chartResp.data);
     } catch {
       setError('Erro ao carregar dados do dashboard');
     } finally {
@@ -46,6 +51,10 @@ export default function Dashboard() {
   }
 
   const { products, orders, stl_projects, stl_files, thingiverse, moonraker, moonraker_error } = data;
+  const pb = charts?.products_by_month || [];
+  const ob = charts?.orders_by_month || [];
+  const prb = charts?.projects_by_month || [];
+  const pd = charts?.price_distribution || [];
 
   const statusLabels = {
     PENDING: 'Pendentes',
@@ -65,8 +74,13 @@ export default function Dashboard() {
     { label: 'Produtos', value: products.total, color: 'var(--accent)', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
     { label: 'Pedidos', value: orders.total, color: 'var(--success)', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
     { label: 'Projetos STL', value: stl_projects.total, color: 'var(--danger)', icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6' },
-    { label: 'Arquivos STL', value: stl_files.total_stl, color: 'var(--warning)', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
+    { label: 'Filamento total', value: `${((charts?.total_filament_grams || 0) / 1000).toFixed(1)}kg`, color: 'var(--warning)', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01' },
   ];
+
+  const maxBar = Math.max(...pb.map(b => b.count), 1);
+  const maxBarO = Math.max(...ob.map(b => b.count), 1);
+  const maxBarP = Math.max(...prb.map(b => b.count), 1);
+  const maxBarPD = Math.max(...pd.map(b => b.count), 1);
 
   return (
     <div>
@@ -76,26 +90,27 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         {mainStats.map(s => (
           <div key={s.label} style={{
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '20px',
-            boxShadow: 'var(--shadow-sm)',
+            background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
+            padding: '20px', boxShadow: 'var(--shadow-sm)',
           }}>
             <div style={{
               width: '40px', height: '40px', borderRadius: 'var(--radius)',
               background: `linear-gradient(135deg, ${s.color}22, ${s.color}11)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: '16px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px',
             }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d={s.icon} />
-              </svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={s.icon} /></svg>
             </div>
             <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--text-h)', lineHeight: '1' }}>{s.value}</div>
             <div style={{ color: 'var(--text)', marginTop: '4px', fontSize: '14px' }}>{s.label}</div>
           </div>
         ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+        <BarChartCard title="Produtos cadastrados" data={pb} maxBar={maxBar} color="var(--accent)" />
+        <BarChartCard title="Pedidos por mês" data={ob} maxBar={maxBarO} color="var(--success)" />
+        <BarChartCard title="Projetos STL" data={prb} maxBar={maxBarP} color="var(--danger)" />
+        <BarChartCard title="Preços dos produtos" data={pd} maxBar={maxBarPD} color="var(--warning)" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
@@ -121,58 +136,28 @@ export default function Dashboard() {
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
           <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: 'var(--text-h)' }}>Projetos STL</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>Upload manual</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{stl_projects.upload}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>Thingiverse</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{stl_projects.thingiverse}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '14px', color: 'var(--warning)' }}>Info. pendentes</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--warning)' }}>{stl_projects.info_pending}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-              <span style={{ fontSize: '14px', color: 'var(--danger)' }}>Não fatiados</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--danger)' }}>{stl_files.unsliced}</span>
-            </div>
+            <MiniRow label="Upload manual" value={stl_projects.upload} />
+            <MiniRow label="Thingiverse" value={stl_projects.thingiverse} />
+            <MiniRow label="Info. pendentes" value={stl_projects.info_pending} color="var(--warning)" />
+            <MiniRow label="Não fatiados" value={stl_files.unsliced} color="var(--danger)" />
           </div>
         </div>
 
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
           <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: 'var(--text-h)' }}>Thingiverse</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>Coleções</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{thingiverse.collections}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>Sincronizados</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--success)' }}>{thingiverse.synced}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>Falhas</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--danger)' }}>{thingiverse.failed}</span>
-            </div>
+            <MiniRow label="Coleções" value={thingiverse.collections} />
+            <MiniRow label="Sincronizados" value={thingiverse.synced} color="var(--success)" />
+            <MiniRow label="Falhas" value={thingiverse.failed} color="var(--danger)" />
           </div>
         </div>
 
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
           <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: 'var(--text-h)' }}>Produtos</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>Total</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{products.total}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>Com custo definido</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{products.with_costs}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>Com preço definido</span>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{products.with_price}</span>
-            </div>
+            <MiniRow label="Total" value={products.total} />
+            <MiniRow label="Com custo definido" value={products.with_costs} />
+            <MiniRow label="Com preço definido" value={products.with_price} />
           </div>
         </div>
 
@@ -180,50 +165,57 @@ export default function Dashboard() {
           <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: 'var(--text-h)' }}>Impressora (Moonraker)</h3>
           {moonraker ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '14px', color: 'var(--text)' }}>Estado</span>
-                <span style={{
-                  fontSize: '14px', fontWeight: '600',
-                  color: moonraker.state === 'ready' || moonraker.state === 'printing' ? 'var(--success)' : 'var(--text-h)',
-                }}>
-                  {moonraker.state}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '14px', color: 'var(--text)' }}>Hostname</span>
-                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{moonraker.hostname}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '14px', color: 'var(--text)' }}>Firmware</span>
-                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{moonraker.firmware_version}</span>
-              </div>
-              {moonraker.print_stats.state && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: '14px', color: 'var(--text)' }}>Status impressão</span>
-                  <span style={{
-                    fontSize: '14px', fontWeight: '600',
-                    color: moonraker.print_stats.state === 'printing' ? 'var(--accent)' : 'var(--text-h)',
-                  }}>
-                    {moonraker.print_stats.state}
-                  </span>
-                </div>
-              )}
-              {moonraker.print_stats.filename && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-                  <span style={{ fontSize: '14px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Arquivo</span>
-                  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{moonraker.print_stats.filename}</span>
-                </div>
-              )}
+              <MiniRow label="Estado" value={moonraker.state} color={moonraker.state === 'ready' || moonraker.state === 'printing' ? 'var(--success)' : undefined} />
+              <MiniRow label="Hostname" value={moonraker.hostname} />
+              <MiniRow label="Firmware" value={moonraker.firmware_version} />
+              {moonraker.print_stats.state && <MiniRow label="Status impressão" value={moonraker.print_stats.state} color={moonraker.print_stats.state === 'printing' ? 'var(--accent)' : undefined} />}
+              {moonraker.print_stats.filename && <MiniRow label="Arquivo" value={moonraker.print_stats.filename} />}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p style={{ color: moonraker_error ? 'var(--danger)' : 'var(--text)', fontSize: '14px', margin: '8px 0' }}>
-                {moonraker_error || 'Impressora não configurada'}
-              </p>
-            </div>
+            <p style={{ color: moonraker_error ? 'var(--danger)' : 'var(--text)', fontSize: '14px', margin: '8px 0' }}>
+              {moonraker_error || 'Impressora não configurada'}
+            </p>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function MiniRow({ label, value, color }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+      <span style={{ fontSize: '14px', color: 'var(--text)' }}>{label}</span>
+      <span style={{ fontSize: '14px', fontWeight: '600', color: color || 'var(--text-h)' }}>{value}</span>
+    </div>
+  );
+}
+
+function BarChartCard({ title, data, maxBar, color }) {
+  return (
+    <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+      <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: 'var(--text-h)' }}>{title}</h3>
+      {data.length === 0 ? (
+        <p style={{ color: 'var(--text)', fontSize: '14px' }}>Sem dados</p>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '100px', paddingTop: '4px' }}>
+          {data.map((b, i) => (
+            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+              <div style={{
+                width: '100%', height: `${(b.count / maxBar) * 80}px`,
+                background: `linear-gradient(180deg, ${color}, ${color}88)`,
+                borderRadius: '3px 3px 0 0',
+                transition: 'height 0.3s',
+                minHeight: b.count > 0 ? '4px' : '0',
+              }} />
+              <span style={{ fontSize: '10px', color: 'var(--text)', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '50px', textAlign: 'center' }}>
+                {b.month || b.range}
+              </span>
+              <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-h)' }}>{b.count}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

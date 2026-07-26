@@ -7,7 +7,8 @@ from pathlib import Path
 from ..config import DATA_DIR
 from ..schemas import (
     Settings, SettingsMoonraker, SettingsSpoolman,
-    SettingsThingiverse, SettingsStore, SettingsPrinters,
+    SettingsThingiverse, SettingsStore, SettingsPrinters, SettingsCosts,
+    SettingsFinance,
 )
 
 SETTINGS_DIR = DATA_DIR / "config"
@@ -41,6 +42,30 @@ def _migrate_json_if_needed() -> None:
                 pass
 
 
+def load_users() -> dict:
+    """Carrega usuários do storker.conf. Retorna dict {username: password_hash}."""
+    if not SETTINGS_FILE.exists():
+        return {}
+    parser = configparser.ConfigParser()
+    parser.read(SETTINGS_FILE)
+    if parser.has_section("users"):
+        return dict(parser["users"])
+    return {}
+
+
+def save_users(users: dict) -> None:
+    """Salva usuários no storker.conf."""
+    SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+    parser = configparser.ConfigParser()
+    if SETTINGS_FILE.exists():
+        parser.read(SETTINGS_FILE)
+    if "users" in parser:
+        parser.remove_section("users")
+    parser["users"] = users
+    with open(SETTINGS_FILE, "w") as f:
+        parser.write(f)
+
+
 def load_settings() -> Settings:
     _migrate_json_if_needed()
 
@@ -71,6 +96,19 @@ def load_settings() -> Settings:
         printers=SettingsPrinters(
             default_server=parser.get("printers", "default_server", fallback="http://localhost:7125"),
         ),
+        costs=SettingsCosts(
+            kwh_rate=parser.getfloat("costs", "kwh_rate", fallback=0.95),
+            printer_watts=parser.getint("costs", "printer_watts", fallback=250),
+            labor_cost_per_hour=parser.getfloat("costs", "labor_cost_per_hour", fallback=0.0),
+            fixed_cost_per_print=parser.getfloat("costs", "fixed_cost_per_print", fallback=0.0),
+            ecommerce_fee_percent=parser.getfloat("costs", "ecommerce_fee_percent", fallback=0.0),
+            profit_margin_percent=parser.getfloat("costs", "profit_margin_percent", fallback=30.0),
+        ),
+        finance=SettingsFinance(
+            categories_income=parser.get("finance", "categories_income", fallback="Venda"),
+            categories_expense=parser.get("finance", "categories_expense", fallback="Filamento,Energia,Embalagem,Frete,Taxa,Outro"),
+            initial_balance=parser.getfloat("finance", "initial_balance", fallback=0.0),
+        ),
     )
 
 
@@ -93,6 +131,19 @@ def save_settings(settings: Settings) -> None:
     }
     parser["printers"] = {
         "default_server": settings.printers.default_server,
+    }
+    parser["costs"] = {
+        "kwh_rate": str(settings.costs.kwh_rate),
+        "printer_watts": str(settings.costs.printer_watts),
+        "labor_cost_per_hour": str(settings.costs.labor_cost_per_hour),
+        "fixed_cost_per_print": str(settings.costs.fixed_cost_per_print),
+        "ecommerce_fee_percent": str(settings.costs.ecommerce_fee_percent),
+        "profit_margin_percent": str(settings.costs.profit_margin_percent),
+    }
+    parser["finance"] = {
+        "categories_income": settings.finance.categories_income,
+        "categories_expense": settings.finance.categories_expense,
+        "initial_balance": str(settings.finance.initial_balance),
     }
 
     with open(SETTINGS_FILE, "w") as f:

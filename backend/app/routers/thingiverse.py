@@ -1,5 +1,6 @@
 """Router Thingiverse - gerenciamento de collections e sincronização."""
 
+import asyncio
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,6 +17,8 @@ from ..schemas import (
 from ..services import sync
 
 router = APIRouter(prefix="/thingiverse", tags=["thingiverse"])
+
+SYNC_TIMEOUT = 300  # 5 minutos maximo para sync completo
 
 
 @router.get("/collections", response_model=List[ThingiverseCollectionResponse])
@@ -61,7 +64,10 @@ def list_downloads(db: Session = Depends(get_db)):
 @router.post("/sync", response_model=SyncResponse)
 async def trigger_sync(db: Session = Depends(get_db)):
     """Dispara sincronização de todas as collections configuradas. Baixa STLs e imagens, cria Products."""
-    results = await sync.sync_all(db)
+    try:
+        results = await asyncio.wait_for(sync.sync_all(db), timeout=SYNC_TIMEOUT)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Sync excedeu o tempo limite (5 min)")
     total_downloaded = sum(r.downloaded for r in results)
     total_skipped = sum(r.skipped for r in results)
     total_failed = sum(r.failed for r in results)
@@ -76,7 +82,10 @@ async def trigger_sync(db: Session = Depends(get_db)):
 @router.post("/sync/{collection_id}", response_model=SyncResponse)
 async def trigger_sync_collection(collection_id: int, db: Session = Depends(get_db)):
     """Dispara sincronização de uma collection específica."""
-    result = await sync.sync_collection(collection_id, db)
+    try:
+        result = await asyncio.wait_for(sync.sync_collection(collection_id, db), timeout=SYNC_TIMEOUT)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Sync excedeu o tempo limite (5 min)")
     return SyncResponse(
         results=[result],
         total_downloaded=result.downloaded,

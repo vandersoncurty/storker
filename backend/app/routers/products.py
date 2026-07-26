@@ -1,19 +1,26 @@
-"""Router de produtos - CRUD, imagens e gestão de catálogo."""
+"""Router de produtos - CRUD, imagens, variantes e gestão de catálogo."""
 
-import mimetypes
+import io
 import shutil
 import uuid
 from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from ..config import PRODUCT_IMAGES_DIR
 from ..database import get_db
 from .. import models, schemas
+from ..services.settings_file import load_settings
+from ..services.spoolman import get_spool
+from .costs import CostEstimate, estimate_cost
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+MAX_IMAGE_DIMENSION = 1920
+JPEG_QUALITY = 85
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -89,12 +96,19 @@ async def upload_image(product_id: int, file: UploadFile = File(...), db: Sessio
         raise HTTPException(status_code=400, detail=f"Formato não suportado. Use: {', '.join(ALLOWED_IMAGE_TYPES)}")
 
     PRODUCT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-    ext = Path(file.filename).suffix or ".jpg"
-    filename = f"{product_id}_{uuid.uuid4().hex[:8]}{ext}"
-    dest = PRODUCT_IMAGES_DIR / filename
 
-    with open(dest, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    image_data = await file.read()
+    img = Image.open(io.BytesIO(image_data))
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    orig_w, orig_h = img.size
+    if orig_w > MAX_IMAGE_DIMENSION or orig_h > MAX_IMAGE_DIMENSION:
+        ratio = min(MAX_IMAGE_DIMENSION / orig_w, MAX_IMAGE_DIMENSION / orig_h)
+        img = img.resize((int(orig_w * ratio), int(orig_h * ratio)), Image.LANCZOS)
+
+    filename = f"{product_id}_{uuid.uuid4().hex[:8]}.jpg"
+    dest = PRODUCT_IMAGES_DIR / filename
+    img.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
 
     has_primary = db.query(models.ProductImage).filter(
         models.ProductImage.product_id == product_id,
@@ -157,3 +171,101 @@ def delete_image(product_id: int, image_id: int, db: Session = Depends(get_db)):
     db.delete(image)
     db.commit()
     return {"detail": "Imagem removida"}
+
+
+def _calc_variant_price(product: models.Product, filament_price_per_kg: float) -> dict:
+    settings = load_settings()
+    costs = settings.costs
+    payload = CostEstimate(
+        filament_grams=product.filament_grams or 0,
+        print_time_seconds=product.print_time_seconds or 0,
+        filament_price_per_kg=filament_price_per_kg,
+        printer_watts=costs.printer_watts,
+        kwh_rate=costs.kwh_rate,
+        labor_cost_per_hour=costs.labor_cost_per_hour,
+        fixed_cost_per_print=costs.fixed_cost_per_print,
+        ecommerce_fee_percent=costs.ecommerce_fee_percent,
+        profit_margin_percent=costs.profit_margin_percent,
+    )
+    result = estimate_cost(payload)
+    return {"production_cost": result.production_cost, "sale_price": result.final_price}
+
+
+@router.post("/{product_id}/variants", response_model=schemas.ProductVariantResponse)
+async def create_variant(product_id: int, payload: schemas.ProductVariantCreate, db: Session = Depends(get_db)):
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    filament_price = payload.filament_price_per_kg
+    if payload.filament_spool_id:
+        try:
+            spool = await get_spool(payload.filament_spool_id)
+            if spool.get("price") and spool.get("initial_weight"):
+                filament_price = spool["price"] / spool["initial_weight"] * 1000
+        except Exception:
+            pass
+
+    prices = _calc_variant_price(product, filament_price)
+
+    variant = models.ProductVariant(
+        product_id=product_id,
+        name=payload.name,
+        filament_price_per_kg=filament_price,
+        production_cost=prices["production_cost"],
+        sale_price=prices["sale_price"],
+    )
+    db.add(variant)
+    db.commit()
+    db.refresh(variant)
+    return variant
+
+
+@router.get("/{product_id}/variants", response_model=List[schemas.ProductVariantResponse])
+def list_variants(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    return product.variants
+
+
+@router.patch("/{product_id}/variants/{variant_id}", response_model=schemas.ProductVariantResponse)
+def update_variant(product_id: int, variant_id: int, payload: schemas.ProductVariantUpdate, db: Session = Depends(get_db)):
+    variant = db.query(models.ProductVariant).filter(
+        models.ProductVariant.id == variant_id,
+        models.ProductVariant.product_id == product_id,
+    ).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variante não encontrada")
+
+    if payload.name is not None:
+        variant.name = payload.name
+    if payload.filament_price_per_kg is not None:
+        variant.filament_price_per_kg = payload.filament_price_per_kg
+    if payload.filament_price_per_kg is not None or payload.production_cost is not None or payload.sale_price is not None:
+        product = db.query(models.Product).filter(models.Product.id == product_id).first()
+        prices = _calc_variant_price(product, variant.filament_price_per_kg)
+        variant.production_cost = payload.production_cost if payload.production_cost is not None else prices["production_cost"]
+        variant.sale_price = payload.sale_price if payload.sale_price is not None else prices["sale_price"]
+    elif not variant.production_cost or not variant.sale_price:
+        product = db.query(models.Product).filter(models.Product.id == product_id).first()
+        prices = _calc_variant_price(product, variant.filament_price_per_kg)
+        variant.production_cost = prices["production_cost"]
+        variant.sale_price = prices["sale_price"]
+
+    db.commit()
+    db.refresh(variant)
+    return variant
+
+
+@router.delete("/{product_id}/variants/{variant_id}")
+def delete_variant(product_id: int, variant_id: int, db: Session = Depends(get_db)):
+    variant = db.query(models.ProductVariant).filter(
+        models.ProductVariant.id == variant_id,
+        models.ProductVariant.product_id == product_id,
+    ).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variante não encontrada")
+    db.delete(variant)
+    db.commit()
+    return {"detail": "Variante removida"}

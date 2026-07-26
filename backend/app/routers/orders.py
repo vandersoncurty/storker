@@ -11,6 +11,25 @@ from .. import models, schemas
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
+def _record_sale_finance(order: models.Order, db: Session):
+    if order.amount and order.amount > 0:
+        existing = db.query(models.FinanceEntry).filter(
+            models.FinanceEntry.reference_type == "order",
+            models.FinanceEntry.reference_id == order.id,
+        ).first()
+        if not existing:
+            entry = models.FinanceEntry(
+                type="income",
+                description=f"Venda #{order.id}",
+                amount=order.amount,
+                category="sale",
+                reference_type="order",
+                reference_id=order.id,
+            )
+            db.add(entry)
+            db.commit()
+
+
 @router.post("/", response_model=schemas.OrderResponse)
 def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     """Cria um novo pedido. O shopee_order_id deve ser único."""
@@ -51,6 +70,8 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
     order.status = status
+    if status == "DONE":
+        _record_sale_finance(order, db)
     db.commit()
     db.refresh(order)
     return order

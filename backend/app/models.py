@@ -64,6 +64,22 @@ class Product(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
+    variants = relationship("ProductVariant", back_populates="product", cascade="all, delete-orphan")
+
+
+class ProductVariant(Base):
+    """Opção de filamento para um produto, com preço próprio."""
+    __tablename__ = "product_variants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    name = Column(String, nullable=False)
+    filament_price_per_kg = Column(Float, default=0.0)
+    production_cost = Column(Float, nullable=True)
+    sale_price = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    product = relationship("Product", back_populates="variants")
 
 
 class ProductImage(Base):
@@ -86,6 +102,20 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     shopee_order_id = Column(String, unique=True, index=True)
     status = Column(String, default="PENDING")  # PENDING, PRINTING, DONE, SHIPPED
+    amount = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FinanceEntry(Base):
+    __tablename__ = "finance_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String, nullable=False)  # "income" ou "expense"
+    description = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    category = Column(String, default="other")  # sale, material, shipping, fee, other
+    reference_type = Column(String, nullable=True)  # "order" ou "manual"
+    reference_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

@@ -7,10 +7,13 @@ const categories = [
   { id: 'store', label: 'Loja' },
   { id: 'printers', label: 'Impressoras' },
   { id: 'filament', label: 'Filamento' },
+  { id: 'costs', label: 'Custos' },
+  { id: 'finance', label: 'Financeiro' },
+  { id: 'users', label: 'Usuários' },
 ];
 
 export default function Settings() {
-  const [activeCategory, setActiveCategory] = useState('integrations');
+  const [activeCategory, setActiveCategory] = useState('thingiverse');
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -117,6 +120,13 @@ export default function Settings() {
           {activeCategory === 'filament' && (
             <FilamentTab data={settings?.spoolman} onChange={(field, v) => handleChange('spoolman', field, v)} />
           )}
+          {activeCategory === 'costs' && (
+            <CostsTab data={settings?.costs} onChange={(field, v) => handleChange('costs', field, v)} />
+          )}
+          {activeCategory === 'finance' && (
+            <FinanceTab data={settings?.finance} onChange={(field, v) => handleChange('finance', field, v)} />
+          )}
+          {activeCategory === 'users' && <UsersTab />}
 
           <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={handleSave} disabled={saving} style={{
@@ -444,6 +454,55 @@ function FilamentTab({ data, onChange }) {
   );
 }
 
+function CostsTab({ data, onChange }) {
+  return (
+    <div>
+      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Custos Fixos</h2>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
+        Configure os custos fixos usados no cálculo automático de preço.
+      </p>
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
+        <Field
+          label="Valor do kWh (R$)"
+          type="number"
+          value={data?.kwh_rate ?? 0.95}
+          onChange={(v) => onChange('kwh_rate', parseFloat(v) || 0)}
+        />
+        <Field
+          label="Consumo da impressora (W)"
+          type="number"
+          value={data?.printer_watts ?? 250}
+          onChange={(v) => onChange('printer_watts', parseInt(v) || 0)}
+        />
+        <Field
+          label="Custo de mão de obra (R$/h)"
+          type="number"
+          value={data?.labor_cost_per_hour ?? 0}
+          onChange={(v) => onChange('labor_cost_per_hour', parseFloat(v) || 0)}
+        />
+        <Field
+          label="Custo fixo por peça (R$)"
+          type="number"
+          value={data?.fixed_cost_per_print ?? 0}
+          onChange={(v) => onChange('fixed_cost_per_print', parseFloat(v) || 0)}
+        />
+        <Field
+          label="Taxa do e-commerce (%)"
+          type="number"
+          value={data?.ecommerce_fee_percent ?? 0}
+          onChange={(v) => onChange('ecommerce_fee_percent', parseFloat(v) || 0)}
+        />
+        <Field
+          label="Margem de lucro (%)"
+          type="number"
+          value={data?.profit_margin_percent ?? 30}
+          onChange={(v) => onChange('profit_margin_percent', parseFloat(v) || 0)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, value, onChange, placeholder, type = 'text' }) {
   return (
     <label style={{ display: 'grid', gap: '6px' }}>
@@ -461,5 +520,185 @@ function Field({ label, value, onChange, placeholder, type = 'text' }) {
         onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
       />
     </label>
+  );
+}
+
+function UsersTab() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
+  const [editPassword, setEditPassword] = useState('');
+  const [message, setMessage] = useState(null);
+
+  const loadUsers = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/auth/users`);
+      setUsers(res.data);
+    } catch {
+      setMessage('Erro ao carregar usuários');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
+  const handleCreate = async () => {
+    if (!newUsername || !newPassword) return;
+    try {
+      await axios.post(`${API_URL}/auth/users`, null, {
+        params: { username: newUsername, password: newPassword },
+      });
+      setNewUsername('');
+      setNewPassword('');
+      setMessage('Usuário criado!');
+      loadUsers();
+    } catch {
+      setMessage('Erro ao criar usuário');
+    }
+  };
+
+  const handleUpdate = async (username) => {
+    if (!editPassword) return;
+    try {
+      await axios.patch(`${API_URL}/auth/users/${username}`, null, {
+        params: { password: editPassword },
+      });
+      setEditingUser(null);
+      setEditPassword('');
+      setMessage('Senha alterada!');
+      loadUsers();
+    } catch {
+      setMessage('Erro ao alterar senha');
+    }
+  };
+
+  const handleDelete = async (username) => {
+    if (!confirm(`Remover usuário "${username}"?`)) return;
+    try {
+      await axios.delete(`${API_URL}/auth/users/${username}`);
+      setMessage('Usuário removido!');
+      loadUsers();
+    } catch {
+      setMessage('Erro ao remover usuário');
+    }
+  };
+
+  return (
+    <div>
+      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Usuários</h2>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
+        Gerencie os usuários do sistema. O usuário <strong>admin</strong> não pode ser removido.
+      </p>
+
+      {message && (
+        <div style={{
+          padding: '10px 16px', borderRadius: 'var(--radius-sm)',
+          background: 'rgba(34,197,94,0.1)', color: 'var(--success)',
+          marginBottom: '16px', fontSize: '14px',
+        }}>{message}</div>
+      )}
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', maxWidth: '480px' }}>
+        <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)}
+          placeholder="Novo usuário" style={{ flex: 1, padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px' }} />
+        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+          placeholder="Senha" style={{ flex: 1, padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px' }} />
+        <button onClick={handleCreate} disabled={!newUsername || !newPassword} style={{
+          padding: '10px 20px', borderRadius: 'var(--radius-sm)', border: 'none',
+          background: !newUsername || !newPassword ? 'var(--border-h)' : 'var(--accent)',
+          color: '#fff', cursor: !newUsername || !newPassword ? 'not-allowed' : 'pointer',
+          fontWeight: '600', fontSize: '13px', whiteSpace: 'nowrap',
+        }}>Adicionar</button>
+      </div>
+
+      {loading ? (
+        <p style={{ color: 'var(--text)', fontSize: '14px' }}>Carregando...</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '480px' }}>
+          {users.map(u => (
+            <div key={u.username} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px', background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+            }}>
+              <div>
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-h)' }}>{u.username}</span>
+                <span style={{
+                  fontSize: '11px', padding: '2px 6px', borderRadius: '3px', marginLeft: '8px',
+                  background: u.role === 'admin' ? 'rgba(124,58,237,0.1)' : 'rgba(34,197,94,0.1)',
+                  color: u.role === 'admin' ? 'var(--accent)' : 'var(--success)', fontWeight: '600',
+                }}>{u.role}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                {editingUser === u.username ? (
+                  <>
+                    <input type="password" value={editPassword} onChange={e => setEditPassword(e.target.value)}
+                      placeholder="Nova senha" style={{ width: '120px', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }}
+                      onKeyDown={e => { if (e.key === 'Enter') handleUpdate(u.username); }} />
+                    <button onClick={() => handleUpdate(u.username)} disabled={!editPassword} style={{
+                      padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--success)',
+                      background: 'transparent', cursor: !editPassword ? 'not-allowed' : 'pointer', fontSize: '12px', color: 'var(--success)',
+                      opacity: !editPassword ? 0.5 : 1,
+                    }}>Salvar</button>
+                    <button onClick={() => { setEditingUser(null); setEditPassword(''); }} style={{
+                      padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                      background: 'transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--text)',
+                    }}>Cancelar</button>
+                  </>
+                ) : (
+                  <button onClick={() => { setEditingUser(u.username); setEditPassword(''); }} style={{
+                    padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                    background: 'transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)',
+                  }}>Alterar senha</button>
+                )}
+                {u.username !== 'admin' && (
+                  <button onClick={() => handleDelete(u.username)} style={{
+                    padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--danger)',
+                    background: 'transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--danger)',
+                  }}>Remover</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FinanceTab({ data, onChange }) {
+  if (!data) return null;
+  return (
+    <div>
+      <h2 style={{ fontSize: '16px', marginBottom: '16px' }}>Financeiro</h2>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
+        Configure as categorias de entrada e saída do caixa.
+        As vendas concluídas (pedidos com status DONE) são registradas automaticamente.
+      </p>
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
+        <Field
+          label="Categorias de entrada"
+          value={data?.categories_income || ''}
+          onChange={(v) => onChange('categories_income', v)}
+          placeholder="Separadas por vírgula. Ex: Venda,Comissão"
+        />
+        <Field
+          label="Categorias de saída"
+          value={data?.categories_expense || ''}
+          onChange={(v) => onChange('categories_expense', v)}
+          placeholder="Separadas por vírgula. Ex: Filamento,Energia,Embalagem"
+        />
+        <Field
+          label="Saldo inicial"
+          type="number"
+          value={data?.initial_balance ?? 0}
+          onChange={(v) => onChange('initial_balance', parseFloat(v) || 0)}
+          step="0.01"
+        />
+      </div>
+    </div>
   );
 }

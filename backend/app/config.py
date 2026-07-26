@@ -10,8 +10,20 @@ PROJECT_ROOT = BASE_DIR.parent
 load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(BASE_DIR / ".env")
 
-# Database
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'store.db'}")
+# Database — explicit DATABASE_URL wins, otherwise build from DB_* vars
+_explicit_url = os.getenv("DATABASE_URL")
+if _explicit_url:
+    DATABASE_URL = _explicit_url
+else:
+    _db_host = os.getenv("DB_HOST")
+    if _db_host:
+        _db_port = os.getenv("DB_PORT", "5432")
+        _db_user = os.getenv("DB_USER", "postgres")
+        _db_pass = os.getenv("DB_PASSWORD", "")
+        _db_name = os.getenv("DB_NAME", "storker_db")
+        DATABASE_URL = f"postgresql://{_db_user}:{_db_pass}@{_db_host}:{_db_port}/{_db_name}"
+    else:
+        DATABASE_URL = f"sqlite:///{BASE_DIR / 'store.db'}"
 
 # Moonraker (Klipper)
 MOONRAKER_URL = os.getenv("MOONRAKER_URL", "http://localhost:7125")

@@ -11,7 +11,7 @@ Sistema de gerenciamento para loja de impressão 3D. Integração com stack Klip
 
 ## Stack
 
-- **Backend**: FastAPI + SQLAlchemy + SQLite (dev) / httpx para APIs externas
+- **Backend**: FastAPI + SQLAlchemy + PostgreSQL (prod) / SQLite (dev) / httpx para APIs externas
 - **Frontend**: React 19 + Vite 8 + Axios
 - **Lint frontend**: oxlint (não ESLint)
 - **Print stack**: Klipper → Moonraker → Mainsail (UI) → Spoolman (filamentos)
@@ -95,7 +95,8 @@ data/
 
 - **Idioma**: Comentários e variáveis em português no código do backend; componentes React em inglês
 - **Ambiente**: Variáveis de configuração via `.env` (carregado por python-dotenv em config.py)
-- **Database**: SQLite em dev (`store.db`); trocar `DATABASE_URL` para PostgreSQL em prod
+- **Database**: SQLite em dev (`store.db`); PostgreSQL em prod via `DB_*` env vars
+- **Imagens**: Otimizadas automaticamente no upload (redimensionamento para 1920px, compressão JPEG 85%) via Pillow
 - **Settings**: Configurações salvas em `backend/data/config/storker.conf` (INI via configparser)
 - **CORS**: Frontend assume porta 5173 (Vite default)
 
@@ -143,19 +144,20 @@ cd backend
 .venv/bin/pytest tests/test_products.py -v  # Só products
 ```
 
-## Módulos previstos (criar separadamente)
+## Módulos implementados (em ordem de criação)
 
-- `printers` - Gerenciamento de impressoras e status Klipper
-- `filament` - Spoolman integration, estoque de filamento
-- `jobs` - Fila de impressão, histórico de jobs
-- `costs` - Cálculo de custo por peça (filamento + tempo)
-- `shopee` - Integração com pedidos Shopee (webhook/polling)
+- ✅ `printers` - Gerenciamento de impressoras e status Klipper (com progress bar, temperaturas, auto-refresh)
+- ✅ `filament` - Spoolman integration, estoque de filamento (com vendor, preço, densidade, temperatura)
+- ✅ `jobs` - Fila de impressão, histórico de jobs
+- ✅ `costs` - Cálculo de custo por peça (filamento + tempo + energia + margem), GCode parser, auto-set em variantes
+- ✅ `variants` - Variantes de produto com preço calculado automaticamente
+- ✅ `dark-mode` - Toggle manual com persistência em localStorage e fallback para preferência do sistema
+- ⬜ `shopee` - Integração com pedidos Shopee (webhook/polling) — pendente
 
 ## Gotchas
 
 - Moonraker API é async (usar httpx AsyncClient)
 - Spoolman API retorna peso em gramas
-- SQLite não suporta `check_same_thread=False` em produção - trocar para PostgreSQL
 - `.env` nunca deve ser committado (contém THINGIVERSE_APP_TOKEN)
 - O venv do backend usa Python 3.14 (Arch) - recriar com `python -m venv .venv` se quebrar
 - `python-multipart` é obrigatório para upload de arquivos no FastAPI
@@ -171,10 +173,12 @@ cd backend
 - [ ] **Página de Pedidos** — backend existe mas sem frontend (será feito com e-commerce)
 
 ### 🟠 Previstos (módulos grandes)
-- [x] **`printers`** — router + página Impressoras + status/controle Moonraker
-- [x] **`filament`** — router + página Filamento + conexão Spoolman (spools, filament types)
+- [x] **`printers`** — router + página Impressoras + status/controle Moonraker + progress bar + temperaturas + auto-refresh
+- [x] **`filament`** — router + página Filamento + conexão Spoolman (spools, filament types, vendor, price, density)
 - [x] **`jobs`** — router + página com fila de impressão do Moonraker + enviar para fila
-- [x] **`costs`** — calculadora de custo (filamento × preço + tempo × energia + margem) + auto-set no produto
+- [x] **`costs`** — calculadora de custo + GCode parser + settings persistidos + auto-set em variantes
+- [x] **`variants`** — variantes de produto CRUD com preço automático (filamento + energia + mão de obra + margem)
+- [x] **`dark-mode`** — toggle manual com localStorage + preferência do sistema como fallback
 - [ ] **`shopee`** — webhook/polling para importar pedidos (pendente)
 
 ### 🟡 Incompletos / Parciais
@@ -184,22 +188,23 @@ cd backend
 - [x] **Vincular GCode** do StlFiles (botão + input ao lado)
 - [x] **Aba "Loja" vazia** — campos reais: nome, moeda, imposto, margem
 - [x] **Aba "Impressoras" vazia** — campo servidor Moonraker padrão
-- [x] **"Enviar para fila" desabilitado** — ainda placeholder, mas não bloqueia
+- [x] **Aba "Custos" vazia** — campos kWh, watts, mão de obra, custo fixo, taxa e-commerce, margem
+- [x] **"Enviar para fila"** — funcional com upload para Moonraker + opção de iniciar impressão
 - [x] **Thingiverse.jsx órfão** — removido (substituído pelo Settings + StlFiles)
 - [ ] **Itens de pedido** — `Order` sem relação com `Product` (pendente)
 
 ### 🔵 Melhorias / Polimento
-- [ ] **Controles da impressora** — Moonraker start/cancel/pause/resume sem UI
-- [ ] **Visualizador 3D de STL** (three.js / model-viewer)
-- [ ] **Enviar GCode para impressora** — selecionar GCode e disparar start_print
-- [ ] **Dark mode toggle** manual
-- [ ] **Gráficos no Dashboard** (histórico de pedidos, filamento, etc.)
-- [ ] **Otimização de imagens** — redimensionar/comprimir no upload
-- [ ] **Custo filamento automático** — preço por grama do Spoolman
-- [ ] **Autenticação** — API aberta hoje
-- [ ] **Testes** — dashboard, stl_projects, image upload, sync, services
-- [ ] **Migração destrutiva** — `check_and_migrate` deleta DB inteiro se schema mudar
-- [ ] **Sem suporte PostgreSQL** — hardcoded `check_same_thread=False`
+- [x] **Controles da impressora** — pause/resume/cancel + progress bar + temperaturas + auto-refresh 3s
+- [x] **Enviar GCode para impressora** — botão "enviar para fila" e "imprimir agora" no StlFiles
+- [x] **Dark mode toggle** — botão na sidebar com persistência
+- [x] **Otimização de imagens** — redimensionamento para 1920px + compressão JPEG 85% via Pillow no upload
+- [x] **Custo filamento automático** — preço por grama do Spoolman (opcional via `filament_spool_id` nas variantes)
+- [x] **Migração segura** — `check_and_migrate` adiciona colunas via ALTER TABLE (sem deletar DB)
+- [x] **Suporte PostgreSQL** — via `DB_*` env vars com conexão segura
+- [x] **Visualizador 3D de STL** — three.js com OrbitControls + STLLoader no modal Editar
+- [x] **Gráficos no Dashboard** — barras por mês (produtos/pedidos/projetos) + distribuição de preços
+- [x] **Autenticação** — login JWT (admin/admin) + tela de login + skip opcional
+- [x] **Testes** — 76 testes: dashboard, stl_projects, image upload, sync, services (moonraker/spoolman/thingiverse), auth
 
 ---
 

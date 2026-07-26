@@ -36,17 +36,37 @@ async def printer_status():
 
 @router.get("/stats")
 async def print_stats():
-    """Retorna estatísticas de impressão atual."""
+    """Retorna estatísticas de impressão atual (temperaturas, progresso)."""
     try:
         stats = await mr_get_print_stats()
         status = stats.get("result", {}).get("status", {})
         ps = status.get("print_stats", {})
+        ds = status.get("display_status", {})
+        extruder = status.get("extruder", {})
+        bed = status.get("heater_bed", {})
+        gcode = status.get("gcode_move", {})
+
+        total_duration = ps.get("total_duration", 0) or ps.get("print_duration", 0)
+        progress = ds.get("progress", 0)
+        if progress == 0 and total_duration > 0 and ps.get("print_duration"):
+            progress = min(ps["print_duration"] / total_duration, 1) if total_duration else 0
+
         return {
             "state": ps.get("state", ""),
             "filename": ps.get("filename", ""),
-            "total_duration": ps.get("total_duration", 0),
+            "total_duration": total_duration,
             "print_duration": ps.get("print_duration", 0),
             "filament_used": ps.get("filament_used", 0),
+            "progress": round(progress * 100, 1),
+            "extruder_temp": extruder.get("temperature", 0),
+            "extruder_target": extruder.get("target", 0),
+            "bed_temp": bed.get("temperature", 0),
+            "bed_target": bed.get("target", 0),
+            "position": {
+                "x": gcode.get("gcode_position", [0, 0, 0])[0],
+                "y": gcode.get("gcode_position", [0, 0, 0])[1],
+                "z": gcode.get("gcode_position", [0, 0, 0])[2],
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Moonraker offline: {e}")

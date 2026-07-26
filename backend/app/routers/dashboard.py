@@ -4,15 +4,23 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from ..database import get_db
+from ..database import get_db, engine as db_engine
 from .. import models
 from ..schemas import Settings
 from ..services.settings_file import load_settings
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+_is_pg = db_engine.url.get_backend_name() in ("postgresql",)
+
+
+def _month_format(column):
+    if _is_pg:
+        return func.to_char(column, "YYYY-MM")
+    return func.strftime("%Y-%m", column)
 
 
 def _get_moonraker_url() -> str:
@@ -144,4 +152,48 @@ async def get_dashboard(db: Session = Depends(get_db)):
         },
         "moonraker": moonraker_status,
         "moonraker_error": moonraker_error,
+    }
+
+
+@router.get("/charts")
+async def get_charts(db: Session = Depends(get_db)):
+    month_col = _month_format(models.Product.created_at)
+    products_data = db.query(
+        month_col.label('month'),
+        func.count(models.Product.id).label('count'),
+    ).group_by(month_col).order_by(month_col).all()
+    products_by_month = [{"month": r.month, "count": r.count} for r in products_data]
+
+    month_col_ord = _month_format(models.Order.created_at)
+    orders_data = db.query(
+        month_col_ord.label('month'),
+        func.count(models.Order.id).label('count'),
+    ).group_by(month_col_ord).order_by(month_col_ord).all()
+    orders_by_month = [{"month": r.month, "count": r.count} for r in orders_data]
+
+    month_col_proj = _month_format(models.StlProject.created_at)
+    projects_data = db.query(
+        month_col_proj.label('month'),
+        func.count(models.StlProject.id).label('count'),
+    ).group_by(month_col_proj).order_by(month_col_proj).all()
+    projects_by_month = [{"month": r.month, "count": r.count} for r in projects_data]
+
+    price_ranges = db.query(
+        models.Product.sale_price,
+    ).filter(models.Product.sale_price.isnot(None)).all()
+    price_distribution = [
+        {"range": "Até R$50", "count": sum(1 for p in price_ranges if p.sale_price <= 50)},
+        {"range": "R$50-100", "count": sum(1 for p in price_ranges if 50 < p.sale_price <= 100)},
+        {"range": "R$100-200", "count": sum(1 for p in price_ranges if 100 < p.sale_price <= 200)},
+        {"range": "R$200+", "count": sum(1 for p in price_ranges if p.sale_price > 200)},
+    ]
+
+    total_filament = db.query(func.sum(models.Product.filament_grams)).scalar() or 0
+
+    return {
+        "products_by_month": products_by_month,
+        "orders_by_month": orders_by_month,
+        "projects_by_month": projects_by_month,
+        "price_distribution": price_distribution,
+        "total_filament_grams": total_filament,
     }

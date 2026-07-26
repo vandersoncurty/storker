@@ -40,6 +40,31 @@ class ProductUpdate(BaseModel):
     taxes_fees: Optional[float] = None
 
 
+class ProductVariantCreate(BaseModel):
+    name: str
+    filament_price_per_kg: float = 0.0
+    filament_spool_id: Optional[int] = None
+
+
+class ProductVariantUpdate(BaseModel):
+    name: Optional[str] = None
+    filament_price_per_kg: Optional[float] = None
+    production_cost: Optional[float] = None
+    sale_price: Optional[float] = None
+
+
+class ProductVariantResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    product_id: int
+    name: str
+    filament_price_per_kg: float
+    production_cost: Optional[float] = None
+    sale_price: Optional[float] = None
+    created_at: datetime
+
+
 class ProductResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,12 +81,14 @@ class ProductResponse(BaseModel):
     sale_price: Optional[float] = None
     taxes_fees: Optional[float] = None
     images: list[ProductImageResponse] = []
+    variants: list[ProductVariantResponse] = []
     created_at: datetime
     updated_at: datetime
 
 
 class OrderBase(BaseModel):
     shopee_order_id: str
+    amount: Optional[float] = None
 
 
 class OrderCreate(OrderBase):
@@ -74,6 +101,47 @@ class OrderResponse(OrderBase):
     id: int
     status: str
     created_at: datetime
+
+
+class FinanceEntryCreate(BaseModel):
+    type: str  # "income" ou "expense"
+    description: str
+    amount: float
+    category: str = "other"
+    reference_type: Optional[str] = None
+    reference_id: Optional[int] = None
+
+
+class FinanceEntryUpdate(BaseModel):
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    category: Optional[str] = None
+
+
+class FinanceEntryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    type: str
+    description: str
+    amount: float
+    category: str
+    reference_type: Optional[str] = None
+    reference_id: Optional[int] = None
+    created_at: datetime
+
+
+class FinanceBalance(BaseModel):
+    total_income: float
+    total_expense: float
+    balance: float
+    entries_count: int
+
+
+class SettingsFinance(BaseModel):
+    categories_income: str = "Venda"
+    categories_expense: str = "Filamento,Energia,Embalagem,Frete,Taxa,Outro"
+    initial_balance: float = 0.0
 
 
 class SettingsMoonraker(BaseModel):
@@ -101,12 +169,23 @@ class SettingsPrinters(BaseModel):
     default_server: str = "http://localhost:7125"
 
 
+class SettingsCosts(BaseModel):
+    kwh_rate: float = 0.95
+    printer_watts: int = 250
+    labor_cost_per_hour: float = 0.0
+    fixed_cost_per_print: float = 0.0
+    ecommerce_fee_percent: float = 0.0
+    profit_margin_percent: float = 30.0
+
+
 class Settings(BaseModel):
     moonraker: SettingsMoonraker = SettingsMoonraker()
     spoolman: SettingsSpoolman = SettingsSpoolman()
     thingiverse: SettingsThingiverse = SettingsThingiverse()
     store: SettingsStore = SettingsStore()
     printers: SettingsPrinters = SettingsPrinters()
+    costs: SettingsCosts = SettingsCosts()
+    finance: SettingsFinance = SettingsFinance()
 
 
 class ThingiverseCollectionCreate(BaseModel):

@@ -109,6 +109,11 @@ function ProductCard({ product, onEdit }) {
     ? `${API_URL}/images/products/${primaryImage.file_path.split('/').pop()}`
     : null;
 
+  const variants = product.variants || [];
+  const prices = variants.map(v => v.sale_price).filter(p => p != null);
+  const minPrice = prices.length > 0 ? Math.min(...prices) : null;
+  const maxPrice = prices.length > 0 ? Math.max(...prices) : null;
+
   return (
     <div style={{
       background: 'var(--bg)',
@@ -173,13 +178,35 @@ function ProductCard({ product, onEdit }) {
               {product.filament_grams}g
             </span>
           )}
-          {product.sale_price && (
+          {minPrice != null && maxPrice != null ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: 'var(--success)' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-              R$ {product.sale_price}
+              {minPrice === maxPrice
+                ? `R$ ${minPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                : `R$ ${minPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ~ R$ ${maxPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+              }
             </span>
-          )}
+          ) : product.sale_price ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: 'var(--success)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+              R$ {product.sale_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </span>
+          ) : null}
         </div>
+
+        {variants.length > 0 && (
+          <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
+            {variants.map(v => (
+              <span key={v.id} style={{
+                fontSize: '11px', padding: '1px 6px', borderRadius: '3px',
+                background: 'var(--accent-bg)', color: 'var(--accent)',
+                fontWeight: '500',
+              }}>
+                {v.name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -209,6 +236,10 @@ function EditModal({ product, onClose, onRefresh }) {
   });
   const [costResult, setCostResult] = useState(null);
   const [applying, setApplying] = useState(false);
+  const [variants, setVariants] = useState(product.variants || []);
+  const [newVariantName, setNewVariantName] = useState('');
+  const [newVariantPrice, setNewVariantPrice] = useState('');
+  const [addingVariant, setAddingVariant] = useState(false);
   const fileInputRef = useRef(null);
 
   const showMessage = (text, type = 'success') => {
@@ -320,6 +351,38 @@ function EditModal({ product, onClose, onRefresh }) {
       onClose();
     } catch {
       showMessage('Erro ao remover produto', 'error');
+    }
+  };
+
+  const handleAddVariant = async () => {
+    if (!newVariantName.trim()) return;
+    setAddingVariant(true);
+    try {
+      const res = await axios.post(`${API_URL}/products/${product.id}/variants`, {
+        name: newVariantName.trim(),
+        filament_price_per_kg: parseFloat(newVariantPrice) || 0,
+      });
+      setVariants(prev => [...prev, res.data]);
+      setNewVariantName('');
+      setNewVariantPrice('');
+      showMessage('Variante adicionada!');
+      onRefresh();
+    } catch {
+      showMessage('Erro ao adicionar variante', 'error');
+    } finally {
+      setAddingVariant(false);
+    }
+  };
+
+  const handleDeleteVariant = async (variant) => {
+    if (!confirm(`Remover variante "${variant.name}"?`)) return;
+    try {
+      await axios.delete(`${API_URL}/products/${product.id}/variants/${variant.id}`);
+      setVariants(prev => prev.filter(v => v.id !== variant.id));
+      showMessage('Variante removida');
+      onRefresh();
+    } catch {
+      showMessage('Erro ao remover variante', 'error');
     }
   };
 
@@ -456,6 +519,71 @@ function EditModal({ product, onClose, onRefresh }) {
               )}
             </div>
           )}
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                Variantes ({variants.length})
+              </h3>
+            </div>
+
+            {variants.length === 0 ? (
+              <p style={{ color: 'var(--text)', fontSize: '13px', padding: '8px 0', textAlign: 'center' }}>
+                Nenhuma variante. Adicione opções de filamento com preços diferentes.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '6px' }}>
+                {variants.map(v => (
+                  <div key={v.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-muted)', fontSize: '13px',
+                  }}>
+                    <span style={{ flex: 1, fontWeight: 600, color: 'var(--text-h)' }}>{v.name}</span>
+                    <span style={{ color: 'var(--text)' }}>
+                      {v.filament_price_per_kg ? `R$${v.filament_price_per_kg.toFixed(2)}/kg` : '—'}
+                    </span>
+                    <span style={{ fontWeight: 600, color: 'var(--success)' }}>
+                      R$ {v.sale_price?.toFixed(2) || '—'}
+                    </span>
+                    <button onClick={() => handleDeleteVariant(v)} style={{
+                      padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--danger)', background: 'transparent',
+                      cursor: 'pointer', fontSize: '11px', color: 'var(--danger)',
+                    }}>Remover</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'flex-end' }}>
+              <label style={{ display: 'grid', gap: '4px', flex: 1 }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Nome</span>
+                <input type="text" value={newVariantName} onChange={e => setNewVariantName(e.target.value)}
+                  placeholder="Ex: PLA Prata" style={{
+                    padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border)', fontSize: '13px',
+                  }} />
+              </label>
+              <label style={{ display: 'grid', gap: '4px', width: '120px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>R$/kg</span>
+                <input type="number" value={newVariantPrice} onChange={e => setNewVariantPrice(e.target.value)}
+                  placeholder="100" style={{
+                    padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border)', fontSize: '13px',
+                  }} />
+              </label>
+              <button onClick={handleAddVariant} disabled={addingVariant || !newVariantName.trim()} style={{
+                padding: '6px 14px', borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--accent)', background: 'transparent',
+                cursor: (addingVariant || !newVariantName.trim()) ? 'not-allowed' : 'pointer',
+                fontSize: '13px', color: 'var(--accent)', fontWeight: 600,
+              }}>
+                {addingVariant ? 'Adicionando...' : 'Adicionar'}
+              </button>
+            </div>
+          </div>
 
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>

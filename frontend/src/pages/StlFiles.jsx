@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_URL } from '../api';
 import ThingiverseIcon from '../components/ThingiverseIcon';
+import STLViewer from '../components/STLViewer';
 
 export default function StlFiles() {
   const [projects, setProjects] = useState([]);
@@ -120,6 +121,16 @@ export default function StlFiles() {
     }
   };
 
+  const handleSendToPrinter = async (e, project, startImmediately = false) => {
+    e.stopPropagation();
+    try {
+      const resp = await axios.post(`${API_URL}/stl/projects/${project.id}/send-to-printer?start=${startImmediately}`);
+      showMessage(resp.data.detail);
+    } catch {
+      showMessage('Erro ao enviar para impressora', 'error');
+    }
+  };
+
   const thingiverseProjects = projects.filter(p => p.source === 'thingiverse');
   const uploadedProjects = projects.filter(p => p.source === 'upload');
 
@@ -192,7 +203,8 @@ export default function StlFiles() {
           <div style={{ display: 'grid', gap: '4px', padding: '12px' }}>
             {uploadedProjects.map(p => (
               <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject}
-                onDownloadStl={handleDownloadStl} onDownloadGcode={handleDownloadGcode} onLinkGcode={handleLinkGcode} />
+                onDownloadStl={handleDownloadStl} onDownloadGcode={handleDownloadGcode} onLinkGcode={handleLinkGcode}
+                onSendToPrinter={handleSendToPrinter} />
             ))}
           </div>
         )}
@@ -211,7 +223,8 @@ export default function StlFiles() {
           <div style={{ display: 'grid', gap: '4px', padding: '12px' }}>
             {thingiverseProjects.map(p => (
               <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject}
-                onDownloadStl={handleDownloadStl} onDownloadGcode={handleDownloadGcode} onLinkGcode={handleLinkGcode} />
+                onDownloadStl={handleDownloadStl} onDownloadGcode={handleDownloadGcode} onLinkGcode={handleLinkGcode}
+                onSendToPrinter={handleSendToPrinter} />
             ))}
           </div>
         )}
@@ -228,7 +241,7 @@ export default function StlFiles() {
   );
 }
 
-function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode, onLinkGcode }) {
+function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode, onLinkGcode, onSendToPrinter }) {
   const hasStl = project.files.some(f => f.file_type === 'stl');
   const hasGcode = project.files.some(f => f.file_type === 'gcode');
   const [linkingId, setLinkingId] = useState(null);
@@ -295,6 +308,22 @@ function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode,
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m-4-4l4 4 4-4"/></svg>
           </button>
         )}
+        {hasGcode && (
+          <>
+            <button onClick={e => onSendToPrinter(e, project, false)} title="Enviar para fila" style={{
+              padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)',
+              background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14v4h12v-4"/><circle cx="18" cy="16" r="1"/></svg>
+            </button>
+            <button onClick={e => onSendToPrinter(e, project, true)} title="Imprimir agora" style={{
+              padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--success)',
+              background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--success)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </button>
+          </>
+        )}
         {!hasGcode && (
           <>
             <button onClick={() => setLinkingId(project.id)} title="Vincular GCode" style={{
@@ -331,6 +360,7 @@ function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode,
 function EditProjectModal({ project, onClose, onSave }) {
   const [title, setTitle] = useState(project.title || project.name);
   const [description, setDescription] = useState(project.description || '');
+  const [viewingStl, setViewingStl] = useState(null);
 
   const stlFiles = project.files.filter(f => f.file_type === 'stl');
   const gcodeFiles = project.files.filter(f => f.file_type === 'gcode');
@@ -385,6 +415,12 @@ function EditProjectModal({ project, onClose, onSave }) {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                     <span style={{ flex: 1, color: 'var(--text-h)' }}>{f.filename}</span>
                     {f.is_sliced && <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '600' }}>Fatiado</span>}
+                    <button onClick={(e) => { e.stopPropagation(); setViewingStl(f.id); }} title="Visualizar 3D" style={{
+                      padding: '2px 6px', borderRadius: '3px', border: '1px solid var(--border)',
+                      background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -419,6 +455,13 @@ function EditProjectModal({ project, onClose, onSave }) {
           }}>Salvar</button>
         </div>
       </div>
+
+      {viewingStl && (
+        <STLViewer
+          url={`${API_URL}/stl/projects/${project.id}/files/${viewingStl}/view`}
+          onClose={() => setViewingStl(null)}
+        />
+      )}
     </div>
   );
 }
