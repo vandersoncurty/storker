@@ -8,6 +8,10 @@ const FALLBACK_COST = {
   electricity_rate: 0.95,
   printer_watts: 250,
   markup_percentage: 30,
+  shopee_commission_pct: 20,
+  shopee_fixed_fee: 3,
+  shopee_commission_cap: 100,
+  shopee_tax_pct: 0,
 };
 
 export default function Products() {
@@ -275,11 +279,17 @@ function EditModal({ product, onClose, onRefresh }) {
         electricity_rate: s.kwh_rate ?? FALLBACK_COST.electricity_rate,
         printer_watts: s.printer_watts ?? FALLBACK_COST.printer_watts,
         markup_percentage: s.profit_margin_percent ?? FALLBACK_COST.markup_percentage,
+        shopee_commission_pct: s.shopee_commission_pct ?? FALLBACK_COST.shopee_commission_pct,
+        shopee_fixed_fee: s.shopee_fixed_fee ?? FALLBACK_COST.shopee_fixed_fee,
+        shopee_commission_cap: s.shopee_commission_cap ?? FALLBACK_COST.shopee_commission_cap,
+        shopee_tax_pct: s.shopee_tax_pct ?? FALLBACK_COST.shopee_tax_pct,
       });
     }).catch(() => {});
   }, []);
   const [costResult, setCostResult] = useState(null);
   const [applying, setApplying] = useState(false);
+  const [shopeeResult, setShopeeResult] = useState(null);
+  const [shopeeApplying, setShopeeApplying] = useState(false);
   const [variants, setVariants] = useState(product.variants || []);
   const [newVariantName, setNewVariantName] = useState('');
   const [newVariantPrice, setNewVariantPrice] = useState('');
@@ -404,6 +414,47 @@ function EditModal({ product, onClose, onRefresh }) {
       showMessage('Erro ao aplicar custo', 'error');
     } finally {
       setApplying(false);
+    }
+  };
+
+  const handleEstimateShopee = async () => {
+    if (!costResult) return;
+    try {
+      const payload = {
+        production_cost: costResult.production_cost,
+        profit_margin_percent: costForm.markup_percentage,
+        shopee_commission_pct: costForm.shopee_commission_pct,
+        shopee_fixed_fee: costForm.shopee_fixed_fee,
+        shopee_commission_cap: costForm.shopee_commission_cap,
+        shopee_tax_pct: costForm.shopee_tax_pct,
+      };
+      const res = await api.post(`${API_URL}/costs/shopee-estimate`, payload);
+      setShopeeResult(res.data);
+    } catch {
+      showMessage('Erro ao calcular preço Shopee', 'error');
+    }
+  };
+
+  const handleApplyShopee = async () => {
+    if (!shopeeResult) return;
+    setShopeeApplying(true);
+    try {
+      const payload = {
+        production_cost: costResult.production_cost,
+        profit_margin_percent: costForm.markup_percentage,
+        shopee_commission_pct: costForm.shopee_commission_pct,
+        shopee_fixed_fee: costForm.shopee_fixed_fee,
+        shopee_commission_cap: costForm.shopee_commission_cap,
+        shopee_tax_pct: costForm.shopee_tax_pct,
+      };
+      await api.post(`${API_URL}/costs/shopee-apply/${product.id}`, payload);
+      showMessage('Preço Shopee aplicado ao produto!');
+      setShowCostCalc(false);
+      onRefresh();
+    } catch {
+      showMessage('Erro ao aplicar preço Shopee', 'error');
+    } finally {
+      setShopeeApplying(false);
     }
   };
 
@@ -632,17 +683,61 @@ function EditModal({ product, onClose, onRefresh }) {
                 background: 'transparent', cursor: 'pointer', fontSize: '13px', color: 'var(--accent)', fontWeight: 600,
               }}>Calcular</button>
               {costResult && (
-                <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: '10px', display: 'grid', gap: '4px', fontSize: '13px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Filamento</span><span style={{ fontWeight: 600 }}>R$ {costResult.filament_cost}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Energia</span><span style={{ fontWeight: 600 }}>R$ {costResult.electricity_cost}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: '4px' }}><span style={{ color: 'var(--text)' }}>Custo produção</span><span style={{ fontWeight: 700 }}>R$ {costResult.production_cost}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Preço sugerido</span><span style={{ fontWeight: 700, color: 'var(--accent)' }}>R$ {costResult.final_price}</span></div>
-                  <button onClick={handleApplyCost} disabled={applying} style={{
-                    marginTop: '8px', padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
-                    background: applying ? 'var(--border-h)' : 'var(--accent)', color: '#fff',
-                    cursor: applying ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px',
-                  }}>{applying ? 'Aplicando...' : 'Aplicar ao produto'}</button>
-                </div>
+                <>
+                  <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: '10px', display: 'grid', gap: '4px', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Filamento</span><span style={{ fontWeight: 600 }}>R$ {costResult.filament_cost}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Energia</span><span style={{ fontWeight: 600 }}>R$ {costResult.electricity_cost}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: '4px' }}><span style={{ color: 'var(--text)' }}>Custo produção</span><span style={{ fontWeight: 700 }}>R$ {costResult.production_cost}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Preço sugerido</span><span style={{ fontWeight: 700, color: 'var(--accent)' }}>R$ {costResult.final_price}</span></div>
+                    <button onClick={handleApplyCost} disabled={applying} style={{
+                      marginTop: '8px', padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
+                      background: applying ? 'var(--border-h)' : 'var(--accent)', color: '#fff',
+                      cursor: applying ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px',
+                    }}>{applying ? 'Aplicando...' : 'Aplicar ao produto'}</button>
+                  </div>
+
+                  <h5 style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--text-h)' }}>Preço Shopee</h5>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <label style={{ display: 'grid', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Comissão (%)</span>
+                      <input type="number" value={costForm.shopee_commission_pct} onChange={e => setCostForm(f => ({ ...f, shopee_commission_pct: parseFloat(e.target.value) || 0 }))}
+                        style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+                    </label>
+                    <label style={{ display: 'grid', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Taxa fixa (R$)</span>
+                      <input type="number" value={costForm.shopee_fixed_fee} onChange={e => setCostForm(f => ({ ...f, shopee_fixed_fee: parseFloat(e.target.value) || 0 }))}
+                        style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+                    </label>
+                    <label style={{ display: 'grid', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Teto comissão (R$)</span>
+                      <input type="number" value={costForm.shopee_commission_cap} onChange={e => setCostForm(f => ({ ...f, shopee_commission_cap: parseFloat(e.target.value) || 0 }))}
+                        style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+                    </label>
+                    <label style={{ display: 'grid', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Imposto (%)</span>
+                      <input type="number" value={costForm.shopee_tax_pct} onChange={e => setCostForm(f => ({ ...f, shopee_tax_pct: parseFloat(e.target.value) || 0 }))}
+                        style={{ padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+                    </label>
+                  </div>
+                  <button onClick={handleEstimateShopee} style={{
+                    padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)',
+                    background: 'transparent', cursor: 'pointer', fontSize: '13px', color: 'var(--accent)', fontWeight: 600,
+                  }}>Calcular preço Shopee</button>
+                  {shopeeResult && (
+                    <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: '10px', display: 'grid', gap: '4px', fontSize: '13px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Preço de venda</span><span style={{ fontWeight: 700, color: '#ee4d2d' }}>R$ {shopeeResult.sale_price}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Taxa Shopee ({(shopeeResult.commission_cap_applied ? 'teto' : shopeeResult.commission_pct + '%')})</span><span style={{ fontWeight: 600 }}>R$ {shopeeResult.shopee_fee}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Impostos</span><span style={{ fontWeight: 600 }}>R$ {shopeeResult.taxes}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: '4px' }}><span style={{ color: 'var(--text)' }}>Lucro líquido</span><span style={{ fontWeight: 700, color: 'var(--success)' }}>R$ {shopeeResult.net_profit}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Margem real</span><span style={{ fontWeight: 600 }}>{shopeeResult.actual_margin_pct}%</span></div>
+                      <button onClick={handleApplyShopee} disabled={shopeeApplying} style={{
+                        marginTop: '8px', padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
+                        background: shopeeApplying ? 'var(--border-h)' : '#ee4d2d', color: '#fff',
+                        cursor: shopeeApplying ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px',
+                      }}>{shopeeApplying ? 'Aplicando...' : 'Aplicar preço Shopee'}</button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

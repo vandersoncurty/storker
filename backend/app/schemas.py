@@ -220,6 +220,10 @@ class SettingsCosts(BaseModel):
     fixed_cost_per_print: float = 0.0
     ecommerce_fee_percent: float = 0.0
     profit_margin_percent: float = 30.0
+    shopee_commission_pct: float = 20.0
+    shopee_fixed_fee: float = 3.0
+    shopee_commission_cap: float = 100.0
+    shopee_tax_pct: float = 0.0
 
 
 class Settings(BaseModel):

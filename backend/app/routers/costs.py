@@ -40,6 +40,26 @@ class CostResult(BaseModel):
     final_price: float
 
 
+class ShopeeEstimate(BaseModel):
+    production_cost: float
+    profit_margin_percent: float = 30.0
+    shopee_commission_pct: float = 20.0
+    shopee_fixed_fee: float = 3.0
+    shopee_commission_cap: float = 100.0
+    shopee_tax_pct: float = 0.0
+
+
+class ShopeeResult(BaseModel):
+    sale_price: float
+    shopee_fee: float
+    taxes: float
+    net_profit: float
+    actual_margin_pct: float
+    commission_pct: float
+    fixed_fee: float
+    commission_cap_applied: bool
+
+
 @router.post("/estimate", response_model=CostResult)
 def estimate_cost(payload: CostEstimate):
     hours = payload.print_time_seconds / 3600
@@ -79,6 +99,59 @@ def estimate_cost(payload: CostEstimate):
 @router.get("/settings", response_model=schemas.SettingsCosts)
 def get_cost_settings():
     return load_settings().costs
+
+
+def calculate_shopee_price(payload: ShopeeEstimate) -> ShopeeResult:
+    total_pct = (payload.shopee_commission_pct + payload.shopee_tax_pct + payload.profit_margin_percent) / 100.0
+    if total_pct >= 1.0:
+        raise HTTPException(status_code=400, detail="Soma das taxas, impostos e margem não pode ser >= 100%")
+
+    sale_price = (payload.production_cost + payload.shopee_fixed_fee) / (1 - total_pct)
+    commission_cap_applied = False
+
+    shopee_fee_calc = sale_price * (payload.shopee_commission_pct / 100.0)
+    if shopee_fee_calc > payload.shopee_commission_cap:
+        sale_price = (payload.production_cost + payload.shopee_fixed_fee + payload.shopee_commission_cap) / (1 - ((payload.shopee_tax_pct + payload.profit_margin_percent) / 100.0))
+        shopee_fee = payload.shopee_commission_cap + payload.shopee_fixed_fee
+        commission_cap_applied = True
+    else:
+        shopee_fee = shopee_fee_calc + payload.shopee_fixed_fee
+
+    taxes = sale_price * (payload.shopee_tax_pct / 100.0)
+    net_profit = sale_price - payload.production_cost - shopee_fee - taxes
+
+    return ShopeeResult(
+        sale_price=round(sale_price, 2),
+        shopee_fee=round(shopee_fee, 2),
+        taxes=round(taxes, 2),
+        net_profit=round(net_profit, 2),
+        actual_margin_pct=round((net_profit / sale_price) * 100, 2) if sale_price else 0,
+        commission_pct=payload.shopee_commission_pct,
+        fixed_fee=payload.shopee_fixed_fee,
+        commission_cap_applied=commission_cap_applied,
+    )
+
+
+@router.post("/shopee-estimate", response_model=ShopeeResult)
+def estimate_shopee(payload: ShopeeEstimate):
+    return calculate_shopee_price(payload)
+
+
+@router.post("/shopee-apply/{product_id}")
+def apply_shopee_price(product_id: int, payload: ShopeeEstimate, db: Session = Depends(get_db)):
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    result = calculate_shopee_price(payload)
+    product.production_cost = round(payload.production_cost, 2)
+    product.sale_price = result.sale_price
+    db.commit()
+    return {
+        "detail": "Preço Shopee aplicado ao produto",
+        "production_cost": product.production_cost,
+        "sale_price": product.sale_price,
+        "shopee_result": result.model_dump(),
+    }
 
 
 @router.post("/apply/{product_id}")

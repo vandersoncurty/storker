@@ -103,6 +103,10 @@ def load_settings() -> Settings:
             fixed_cost_per_print=parser.getfloat("costs", "fixed_cost_per_print", fallback=0.0),
             ecommerce_fee_percent=parser.getfloat("costs", "ecommerce_fee_percent", fallback=0.0),
             profit_margin_percent=parser.getfloat("costs", "profit_margin_percent", fallback=30.0),
+            shopee_commission_pct=parser.getfloat("costs", "shopee_commission_pct", fallback=20.0),
+            shopee_fixed_fee=parser.getfloat("costs", "shopee_fixed_fee", fallback=3.0),
+            shopee_commission_cap=parser.getfloat("costs", "shopee_commission_cap", fallback=100.0),
+            shopee_tax_pct=parser.getfloat("costs", "shopee_tax_pct", fallback=0.0),
         ),
         finance=SettingsFinance(
             categories_income=parser.get("finance", "categories_income", fallback="Venda"),
@@ -139,6 +143,10 @@ def save_settings(settings: Settings) -> None:
         "fixed_cost_per_print": str(settings.costs.fixed_cost_per_print),
         "ecommerce_fee_percent": str(settings.costs.ecommerce_fee_percent),
         "profit_margin_percent": str(settings.costs.profit_margin_percent),
+        "shopee_commission_pct": str(settings.costs.shopee_commission_pct),
+        "shopee_fixed_fee": str(settings.costs.shopee_fixed_fee),
+        "shopee_commission_cap": str(settings.costs.shopee_commission_cap),
+        "shopee_tax_pct": str(settings.costs.shopee_tax_pct),
     }
     parser["finance"] = {
         "categories_income": settings.finance.categories_income,

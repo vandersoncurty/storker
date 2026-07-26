@@ -498,6 +498,37 @@ function CostsTab({ data, onChange }) {
           onChange={(v) => onChange('profit_margin_percent', parseFloat(v) || 0)}
         />
       </div>
+
+      <h2 style={{ fontSize: '16px', marginBottom: '16px', marginTop: '28px' }}>Shopee</h2>
+      <p style={{ color: 'var(--text)', marginBottom: '20px', fontSize: '14px' }}>
+        Taxas da Shopee usadas no cálculo de preço para a plataforma.
+      </p>
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '480px' }}>
+        <Field
+          label="Comissão Shopee (%)"
+          type="number"
+          value={data?.shopee_commission_pct ?? 20}
+          onChange={(v) => onChange('shopee_commission_pct', parseFloat(v) || 0)}
+        />
+        <Field
+          label="Taxa fixa por item (R$)"
+          type="number"
+          value={data?.shopee_fixed_fee ?? 3}
+          onChange={(v) => onChange('shopee_fixed_fee', parseFloat(v) || 0)}
+        />
+        <Field
+          label="Teto da comissão (R$)"
+          type="number"
+          value={data?.shopee_commission_cap ?? 100}
+          onChange={(v) => onChange('shopee_commission_cap', parseFloat(v) || 0)}
+        />
+        <Field
+          label="Imposto (%)"
+          type="number"
+          value={data?.shopee_tax_pct ?? 0}
+          onChange={(v) => onChange('shopee_tax_pct', parseFloat(v) || 0)}
+        />
+      </div>
     </div>
   );
 }
