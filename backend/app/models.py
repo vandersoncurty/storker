@@ -100,10 +100,17 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
-    shopee_order_id = Column(String, unique=True, index=True)
+    shopee_order_id = Column(String, nullable=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     status = Column(String, default="PENDING")  # PENDING, PRINTING, DONE, SHIPPED
     amount = Column(Float, nullable=True)
+    buyer_name = Column(String, nullable=True)
+    buyer_contact = Column(String, nullable=True)
+    shipping_address = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    product = relationship("Product")
 
 
 class FinanceEntry(Base):

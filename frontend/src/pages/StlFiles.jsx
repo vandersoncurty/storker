@@ -9,6 +9,7 @@ export default function StlFiles() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [viewingStl, setViewingStl] = useState(null);
   const [uploadFiles, setUploadFiles] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -131,6 +132,12 @@ export default function StlFiles() {
     }
   };
 
+  const handleViewStl = async (project) => {
+    const stlFile = project.files.find(f => f.file_type === 'stl');
+    if (!stlFile) return;
+    setViewingStl({ projectId: project.id, fileId: stlFile.id });
+  };
+
   const thingiverseProjects = projects.filter(p => p.source === 'thingiverse');
   const uploadedProjects = projects.filter(p => p.source === 'upload');
 
@@ -204,7 +211,7 @@ export default function StlFiles() {
             {uploadedProjects.map(p => (
               <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject}
                 onDownloadStl={handleDownloadStl} onDownloadGcode={handleDownloadGcode} onLinkGcode={handleLinkGcode}
-                onSendToPrinter={handleSendToPrinter} />
+                onSendToPrinter={handleSendToPrinter} onViewStl={handleViewStl} />
             ))}
           </div>
         )}
@@ -224,7 +231,7 @@ export default function StlFiles() {
             {thingiverseProjects.map(p => (
               <ProjectRow key={p.id} project={p} onEdit={setEditing} onDelete={handleDeleteProject}
                 onDownloadStl={handleDownloadStl} onDownloadGcode={handleDownloadGcode} onLinkGcode={handleLinkGcode}
-                onSendToPrinter={handleSendToPrinter} />
+                onSendToPrinter={handleSendToPrinter} onViewStl={handleViewStl} />
             ))}
           </div>
         )}
@@ -237,11 +244,18 @@ export default function StlFiles() {
           onSave={handleEditProject}
         />
       )}
+
+      {viewingStl && (
+        <STLViewer
+          url={`${API_URL}/stl/projects/${viewingStl.projectId}/files/${viewingStl.fileId}/view`}
+          onClose={() => setViewingStl(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode, onLinkGcode, onSendToPrinter }) {
+function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode, onLinkGcode, onSendToPrinter, onViewStl }) {
   const hasStl = project.files.some(f => f.file_type === 'stl');
   const hasGcode = project.files.some(f => f.file_type === 'gcode');
   const [linkingId, setLinkingId] = useState(null);
@@ -298,6 +312,14 @@ function ProjectRow({ project, onEdit, onDelete, onDownloadStl, onDownloadGcode,
             background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
           }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m-4-4l4 4 4-4M8 8l4-4 4 4"/></svg>
+          </button>
+        )}
+        {hasStl && (
+          <button onClick={e => { e.stopPropagation(); onViewStl(project); }} title="Visualizar 3D" style={{
+            padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+            background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
           </button>
         )}
         {hasGcode && (

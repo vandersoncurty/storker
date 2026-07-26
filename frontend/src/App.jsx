@@ -10,6 +10,7 @@ import Jobs from './pages/Jobs';
 import Filament from './pages/Filament';
 import Costs from './pages/Costs';
 import Finance from './pages/Finance';
+import Orders from './pages/Orders';
 import Login from './pages/Login';
 
 const menuItems = [
@@ -106,6 +107,8 @@ function App() {
         return <Jobs />;
       case 'finance':
         return <Finance />;
+      case 'orders':
+        return <Orders />;
       case 'settings':
         return <Settings />;
       default:

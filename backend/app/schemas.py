@@ -87,12 +87,27 @@ class ProductResponse(BaseModel):
 
 
 class OrderBase(BaseModel):
-    shopee_order_id: str
+    shopee_order_id: Optional[str] = None
+    product_id: Optional[int] = None
     amount: Optional[float] = None
+    buyer_name: Optional[str] = None
+    buyer_contact: Optional[str] = None
+    shipping_address: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class OrderCreate(OrderBase):
     pass
+
+
+class OrderUpdate(BaseModel):
+    product_id: Optional[int] = None
+    amount: Optional[float] = None
+    buyer_name: Optional[str] = None
+    buyer_contact: Optional[str] = None
+    shipping_address: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
 
 
 class OrderResponse(OrderBase):
@@ -100,6 +115,7 @@ class OrderResponse(OrderBase):
 
     id: int
     status: str
+    product: Optional[ProductResponse] = None
     created_at: datetime
 
 

@@ -103,6 +103,7 @@ export default function Products() {
 }
 
 function ProductCard({ product, onEdit }) {
+  const [orderMsg, setOrderMsg] = useState(null);
   const primaryImage = product.images.find(i => i.is_primary);
 
   const imageUrl = primaryImage
@@ -113,6 +114,19 @@ function ProductCard({ product, onEdit }) {
   const prices = variants.map(v => v.sale_price).filter(p => p != null);
   const minPrice = prices.length > 0 ? Math.min(...prices) : null;
   const maxPrice = prices.length > 0 ? Math.max(...prices) : null;
+
+  const handleCreateOrder = async (e) => {
+    e.stopPropagation();
+    const amount = product.sale_price || product.production_cost || 0;
+    try {
+      await axios.post(`${API_URL}/orders/`, { product_id: product.id, amount });
+      setOrderMsg('Pedido criado!');
+      setTimeout(() => setOrderMsg(null), 2000);
+    } catch {
+      setOrderMsg('Erro');
+      setTimeout(() => setOrderMsg(null), 2000);
+    }
+  };
 
   return (
     <div style={{
@@ -207,6 +221,18 @@ function ProductCard({ product, onEdit }) {
             ))}
           </div>
         )}
+
+        <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+          {orderMsg && <span style={{ fontSize: '12px', fontWeight: 600, color: orderMsg === 'Pedido criado!' ? 'var(--success)' : 'var(--danger)' }}>{orderMsg}</span>}
+          <button onClick={handleCreateOrder} style={{
+            padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)',
+            background: 'transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)',
+            fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+            Pedido
+          </button>
+        </div>
       </div>
     </div>
   );

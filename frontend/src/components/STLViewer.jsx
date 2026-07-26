@@ -6,17 +6,27 @@ export default function STLViewer({ url, onClose }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    let scene, camera, renderer, controls;
+    let scene, camera, renderer, controls, animationId;
+    let mounted = true;
+
+    const handleResize = () => {
+      if (!containerRef.current || !camera || !renderer) return;
+      const w = containerRef.current.clientWidth;
+      const h = containerRef.current.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    };
 
     const init = async () => {
       const THREE = await import('three');
       const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
       const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js');
 
+      if (!mounted || !containerRef.current) return;
       const container = containerRef.current;
-      if (!container) return;
-      const w = container.clientWidth;
-      const h = container.clientHeight;
+      const w = container.clientWidth || 600;
+      const h = container.clientHeight || 400;
 
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x1a1a2e);
@@ -50,16 +60,19 @@ export default function STLViewer({ url, onClose }) {
       const loader = new STLLoader();
       try {
         const geometry = await loader.loadAsync(url);
-        geometry.center();
-        geometry.computeVertexNormals();
+        if (!mounted) return;
 
-        const bbox = new THREE.Box3().setFromBufferAttribute(geometry.getAttribute('position'));
+        geometry.center();
+
+        const bbox = new THREE.Box3().setFromObject(new THREE.Mesh(geometry));
         const size = bbox.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
         if (maxDim > 0) {
           const scale = 3 / maxDim;
           geometry.scale(scale, scale, scale);
         }
+
+        geometry.computeVertexNormals();
 
         const material = new THREE.MeshPhongMaterial({
           color: 0x6c5ce7,
@@ -70,41 +83,37 @@ export default function STLViewer({ url, onClose }) {
         const mesh = new THREE.Mesh(geometry, material);
         scene.add(mesh);
 
-        geometry.computeVertexNormals();
         setLoading(false);
       } catch {
-        setError('Erro ao carregar STL');
-        setLoading(false);
+        if (mounted) {
+          setError('Erro ao carregar STL');
+          setLoading(false);
+        }
       }
 
       const animate = () => {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
+        animationId = requestAnimationFrame(animate);
+        if (controls) controls.update();
+        if (renderer && scene && camera) renderer.render(scene, camera);
       };
       animate();
 
-      const handleResize = () => {
-        const w2 = container.clientWidth;
-        const h2 = container.clientHeight;
-        camera.aspect = w2 / h2;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w2, h2);
-      };
       window.addEventListener('resize', handleResize);
     };
 
-    const containerEl = containerRef.current;
     init();
 
     return () => {
-      if (renderer && containerEl) {
+      mounted = false;
+      window.removeEventListener('resize', handleResize);
+      if (animationId) cancelAnimationFrame(animationId);
+      if (controls) controls.dispose();
+      if (renderer) {
         renderer.dispose();
-        if (renderer.domElement.parentElement === containerEl) {
-          containerEl.removeChild(renderer.domElement);
+        if (renderer.domElement.parentElement) {
+          renderer.domElement.remove();
         }
       }
-      window.removeEventListener('resize', () => {});
     };
   }, [url]);
 

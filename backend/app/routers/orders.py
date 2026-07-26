@@ -1,4 +1,4 @@
-"""Router de pedidos - CRUD e gerenciamento de status."""
+"""Router de pedidos - CRUD manual, gerenciamento de status e auto-finance."""
 
 from typing import List
 
@@ -31,14 +31,9 @@ def _record_sale_finance(order: models.Order, db: Session):
 
 
 @router.post("/", response_model=schemas.OrderResponse)
-def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
-    """Cria um novo pedido. O shopee_order_id deve ser único."""
-    existing = db.query(models.Order).filter(
-        models.Order.shopee_order_id == order.shopee_order_id
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Pedido já existe")
-    db_order = models.Order(**order.model_dump())
+def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
+    """Cria um novo pedido manual."""
+    db_order = models.Order(**payload.model_dump())
     db.add(db_order)
     db.commit()
     db.refresh(db_order)
@@ -46,9 +41,20 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[schemas.OrderResponse])
-def list_orders(skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
-    """Lista todos os pedidos."""
-    return db.query(models.Order).offset(skip).limit(limit).all()
+def list_orders(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    status: str = Query(None, description="Filtrar por status"),
+    search: str = Query(None, description="Busca por nome do comprador"),
+    db: Session = Depends(get_db),
+):
+    """Lista pedidos com filtros opcionais."""
+    q = db.query(models.Order)
+    if status:
+        q = q.filter(models.Order.status == status)
+    if search:
+        q = q.filter(models.Order.buyer_name.ilike(f"%{search}%"))
+    return q.order_by(models.Order.created_at.desc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{order_id}", response_model=schemas.OrderResponse)
@@ -60,9 +66,24 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     return order
 
 
+@router.patch("/{order_id}", response_model=schemas.OrderResponse)
+def update_order(order_id: int, payload: schemas.OrderUpdate, db: Session = Depends(get_db)):
+    """Atualiza dados de um pedido (incluindo status)."""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(order, field, value)
+    if order.status == "DONE":
+        _record_sale_finance(order, db)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 @router.patch("/{order_id}/status", response_model=schemas.OrderResponse)
 def update_order_status(order_id: int, status: str, db: Session = Depends(get_db)):
-    """Atualiza o status de um pedido. Valores válidos: PENDING, PRINTING, DONE, SHIPPED."""
+    """Atualiza apenas o status. Valores: PENDING, PRINTING, DONE, SHIPPED."""
     valid = {"PENDING", "PRINTING", "DONE", "SHIPPED"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Status inválido. Use: {valid}")
@@ -75,3 +96,14 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
     db.commit()
     db.refresh(order)
     return order
+
+
+@router.delete("/{order_id}")
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    """Remove um pedido."""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    db.delete(order)
+    db.commit()
+    return {"detail": "Pedido removido"}

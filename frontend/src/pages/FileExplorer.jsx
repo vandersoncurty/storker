@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_URL } from '../api';
+import STLViewer from '../components/STLViewer';
 
 export default function FileExplorer() {
   const [projects, setProjects] = useState([]);
@@ -10,6 +11,7 @@ export default function FileExplorer() {
   const [filterSliced, setFilterSliced] = useState('all');
   const [contextMenu, setContextMenu] = useState(null);
   const [linkingGcode, setLinkingGcode] = useState(null);
+  const [viewingStl, setViewingStl] = useState(null);
   const [message, setMessage] = useState(null);
 
   const menuRef = useRef(null);
@@ -118,6 +120,13 @@ export default function FileExplorer() {
     } catch {
       showMessage('Erro ao remover projeto', 'error');
     }
+    setContextMenu(null);
+  };
+
+  const handleViewStl = (project) => {
+    const stl = project.files.find(f => f.file_type === 'stl');
+    if (!stl) return;
+    setViewingStl({ projectId: project.id, fileId: stl.id });
     setContextMenu(null);
   };
 
@@ -245,6 +254,10 @@ export default function FileExplorer() {
           zIndex: 200, minWidth: '180px', padding: '4px', fontSize: '13px',
         }} onClick={e => e.stopPropagation()}>
           <MenuItem label="Baixar STL" icon="M12 4v16m-4-4l4 4 4-4" onClick={() => handleDownloadStl(contextMenu.project)} />
+          {contextMenu.project.files.some(f => f.file_type === 'stl') && (
+            <MenuItem label="Visualizar 3D" icon="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 9a3 3 0 100 6 3 3 0 000-6z"
+              onClick={() => handleViewStl(contextMenu.project)} />
+          )}
           <MenuItem label="Vincular GCode" icon="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
             onClick={() => {
               setLinkingGcode(contextMenu.project.id);
@@ -255,9 +268,10 @@ export default function FileExplorer() {
             <MenuItem label="Baixar GCode" icon="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               onClick={() => handleDownloadGcode(contextMenu.project)} />
           )}
-          <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-          <MenuItem label="Enviar para fila" icon="M5 12h14m-7-7l7 7-7 7"
-            onClick={() => handleSendToQueue(contextMenu.project)} />
+          {contextMenu.project.files.some(f => f.file_type === 'gcode') && (
+            <MenuItem label="Enviar para fila" icon="M5 12h14m-7-7l7 7-7 7"
+              onClick={() => handleSendToQueue(contextMenu.project)} />
+          )}
           <MenuItem label="Excluir projeto" icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
             onClick={() => handleDeleteProject(contextMenu.project)} />
         </div>
@@ -268,6 +282,13 @@ export default function FileExplorer() {
           id={`gcode-${linkingGcode}`}
           style={{ display: 'none' }}
           onChange={e => handleLinkGcode(e, contextMenu?.project)}
+        />
+      )}
+
+      {viewingStl && (
+        <STLViewer
+          url={`${API_URL}/stl/projects/${viewingStl.projectId}/files/${viewingStl.fileId}/view`}
+          onClose={() => setViewingStl(null)}
         />
       )}
     </div>
