@@ -131,10 +131,6 @@ class Order(Base):
     status_ref = relationship("OrderStatus")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
-    @property
-    def status(self):
-        return self.status_ref.code if self.status_ref else None
-
 
 class FinanceEntry(Base):
     __tablename__ = "finance_entries"
@@ -150,14 +146,6 @@ class FinanceEntry(Base):
 
     type_ref = relationship("FinanceType", foreign_keys=[type_id])
     category_ref = relationship("FinanceCategory")
-
-    @property
-    def type(self):
-        return self.type_ref.code if self.type_ref else None
-
-    @property
-    def category(self):
-        return self.category_ref.code if self.category_ref else None
 
 
 class OrderStatus(Base):

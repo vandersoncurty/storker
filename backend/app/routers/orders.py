@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session, joinedload, subqueryload
 
 from ..database import get_db
 from .. import models, schemas
+from ..paths import abs_path
+from ..services.moonraker import upload_file_to_moonraker, start_print
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -164,3 +166,57 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     db.delete(order)
     db.commit()
     return {"detail": "Pedido removido"}
+
+
+@router.post("/{order_id}/send-to-printer")
+async def send_order_to_printer(order_id: int, db: Session = Depends(get_db)):
+    """Envia o(s) GCode(s) do produto do pedido para o Moonraker."""
+    order = db.query(models.Order).options(
+        joinedload(models.Order.product),
+    ).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    if not order.product:
+        raise HTTPException(status_code=400, detail="Pedido não possui produto vinculado")
+
+    thing_id = order.product.thing_id
+    local_path = order.product.local_path
+    projects = []
+    if thing_id:
+        projects = db.query(models.StlProject).filter(
+            models.StlProject.thing_id == thing_id
+        ).all()
+    if not projects and local_path:
+        stl_name = local_path.rstrip("/").split("/")[-1]
+        projects = db.query(models.StlProject).filter(
+            models.StlProject.path.like(f"%{stl_name}%"),
+        ).all()
+    if not projects:
+        raise HTTPException(status_code=400, detail="Nenhum projeto STL encontrado para este produto")
+
+    sent = []
+    errors = []
+    for project in projects:
+        gcode_files = [f for f in project.files if f.file_type == "gcode"]
+        if not gcode_files:
+            continue
+        for gf in gcode_files:
+            gcode_path = abs_path(gf.file_path)
+            if not gcode_path.exists():
+                errors.append(f"Arquivo não encontrado: {gf.filename}")
+                continue
+            try:
+                await upload_file_to_moonraker(gf.filename, str(gcode_path))
+                sent.append(gf.filename)
+            except Exception as e:
+                errors.append(f"{gf.filename}: {e}")
+
+    detail = []
+    if sent:
+        detail.append(f"Enviado(s): {', '.join(sent)}")
+    if errors:
+        detail.append(f"Erro(s): {'; '.join(errors)}")
+    if not sent and not errors:
+        raise HTTPException(status_code=400, detail="Nenhum GCode encontrado nos projetos vinculados")
+
+    return {"detail": ". ".join(detail), "sent": sent, "errors": errors}

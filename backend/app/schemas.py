@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class ProductImageBase(BaseModel):
@@ -166,6 +166,12 @@ class OrderResponse(OrderBase):
     items: list[OrderItemResponse] = []
     created_at: datetime
 
+    @model_validator(mode='after')
+    def resolve_status(self):
+        if self.status is None and self.status_ref is not None:
+            self.status = self.status_ref.code
+        return self
+
 
 class FinanceTypeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -245,6 +251,14 @@ class FinanceEntryResponse(BaseModel):
     reference_type: Optional[str] = None
     reference_id: Optional[int] = None
     created_at: datetime
+
+    @model_validator(mode='after')
+    def resolve_type_category(self):
+        if self.type is None and self.type_ref is not None:
+            self.type = self.type_ref.code
+        if self.category is None and self.category_ref is not None:
+            self.category = self.category_ref.code
+        return self
 
 
 class FinanceBalance(BaseModel):

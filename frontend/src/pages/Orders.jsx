@@ -24,6 +24,11 @@ export default function Orders() {
   const statusList = useMemo(() => (statuses.length ? statuses.map(s => s.code) : []), [statuses]);
   const statusColors = useMemo(() => Object.fromEntries(statuses.map(s => [s.code, s.color])), [statuses]);
   const statusLabels = useMemo(() => Object.fromEntries(statuses.map(s => [s.code, s.label])), [statuses]);
+  const statusById = useMemo(() => Object.fromEntries(statuses.map(s => [s.id, s])), [statuses]);
+
+  const orderStatus = (order) => order.status || statusById[order.status_id]?.code || 'PENDING';
+  const orderStatusColor = (order) => statusColors[orderStatus(order)] || '#6b7280';
+  const orderStatusLabel = (order) => statusLabels[orderStatus(order)] || orderStatus(order);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -110,6 +115,16 @@ export default function Orders() {
       loadOrders();
     } catch {
       setError('Erro ao remover pedido');
+    }
+  };
+
+  const handleSendToPrinter = async (order) => {
+    try {
+      setError(null);
+      const res = await api.post(`${API_URL}/orders/${order.id}/send-to-printer`);
+      alert(res.data.detail);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao enviar para impressora');
     }
   };
 
@@ -264,10 +279,10 @@ export default function Orders() {
                   <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                     <span style={{
                       padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600',
-                      background: `${statusColors[order.status]}20`,
-                      color: statusColors[order.status],
+                      background: `${statusColors[orderStatus(order)]}20`,
+                      color: orderStatusColor(order),
                     }}>
-                      {statusLabels[order.status]}
+                      {orderStatusLabel(order)}
                     </span>
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '600', color: 'var(--accent)' }}>
@@ -278,12 +293,20 @@ export default function Orders() {
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                      {nextStatus(order.status) && (
-                        <button onClick={() => handleStatus(order, nextStatus(order.status))} title={`Mover para ${statusLabels[nextStatus(order.status)]}`} style={{
+                      {nextStatus(orderStatus(order)) && (
+                        <button onClick={() => handleStatus(order, nextStatus(orderStatus(order)))} title={`Mover para ${statusLabels[nextStatus(orderStatus(order))]}`} style={{
                           padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--accent)',
                           background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
                         }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14m-7-7l7 7-7 7"/></svg>
+                        </button>
+                      )}
+                      {order.product && (
+                        <button onClick={() => handleSendToPrinter(order)} title="Enviar GCode para impressora" style={{
+                          padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--success)',
+                          background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--success)',
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
                         </button>
                       )}
                       <button onClick={() => handleEdit(order)} style={{
