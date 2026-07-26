@@ -10,7 +10,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 
-from ..config import UPLOADED_MODELS_DIR, GCODES_DIR
+from ..config import UPLOADED_MODELS_DIR, GCODES_DIR, THINGIVERSE_MODELS_DIR
 from ..database import get_db
 from .. import models, schemas
 from ..services.settings_file import load_settings
@@ -79,7 +79,10 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     project = db.query(models.StlProject).filter(models.StlProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
-    proj_path = Path(project.path)
+    proj_path = Path(project.path).resolve()
+    allowed_dirs = [p.resolve() for p in [UPLOADED_MODELS_DIR, GCODES_DIR, THINGIVERSE_MODELS_DIR]]
+    if not any(str(proj_path).startswith(str(d)) for d in allowed_dirs):
+        raise HTTPException(status_code=403, detail="Caminho do projeto fora dos diretórios permitidos")
     if proj_path.exists():
         shutil.rmtree(proj_path)
     db.delete(project)

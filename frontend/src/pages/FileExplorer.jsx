@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 import ThingiverseIcon from '../components/ThingiverseIcon';
 import STLViewer from '../components/STLViewer';
 
@@ -36,7 +35,7 @@ export default function FileExplorer() {
   const loadProjects = async () => {
     try {
       setError(null);
-      const res = await axios.get(`${API_URL}/stl/projects`);
+      const res = await api.get(`${API_URL}/stl/projects`);
       setProjects(res.data);
     } catch {
       setError('Erro ao carregar projetos');
@@ -53,7 +52,7 @@ export default function FileExplorer() {
       formData.append('files', f);
     }
     try {
-      await axios.post(`${API_URL}/stl/upload`, formData);
+      await api.post(`${API_URL}/stl/upload`, formData);
       showMessage('Upload concluído!');
       setUploadFiles(null);
       loadProjects();
@@ -75,7 +74,7 @@ export default function FileExplorer() {
   const handleDownloadStl = async (e, project) => {
     if (e) e.stopPropagation();
     try {
-      const resp = await axios.get(`${API_URL}/stl/projects/${project.id}/download/stl`, { responseType: 'blob' });
+      const resp = await api.get(`${API_URL}/stl/projects/${project.id}/download/stl`, { responseType: 'blob' });
       const url = URL.createObjectURL(resp.data);
       const a = document.createElement('a');
       a.href = url;
@@ -92,7 +91,7 @@ export default function FileExplorer() {
   const handleDownloadGcode = async (e, project) => {
     if (e) e.stopPropagation();
     try {
-      const resp = await axios.get(`${API_URL}/stl/projects/${project.id}/download/gcode`, { responseType: 'blob' });
+      const resp = await api.get(`${API_URL}/stl/projects/${project.id}/download/gcode`, { responseType: 'blob' });
       const url = URL.createObjectURL(resp.data);
       const a = document.createElement('a');
       a.href = url;
@@ -113,7 +112,7 @@ export default function FileExplorer() {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      await axios.post(`${API_URL}/stl/projects/${project.id}/link-gcode`, formData);
+      await api.post(`${API_URL}/stl/projects/${project.id}/link-gcode`, formData);
       showMessage('GCode vinculado!');
       loadProjects();
     } catch {
@@ -131,7 +130,7 @@ export default function FileExplorer() {
       return;
     }
     try {
-      await axios.post(`${API_URL}/jobs/queue`, null, { params: { filename: gcode.filename } });
+      await api.post(`${API_URL}/jobs/queue`, null, { params: { filename: gcode.filename } });
       showMessage('Adicionado à fila do Moonraker!');
     } catch {
       showMessage('Erro ao adicionar à fila', 'error');
@@ -142,7 +141,7 @@ export default function FileExplorer() {
   const handleSendToPrinter = async (e, project, startImmediately = false) => {
     e.stopPropagation();
     try {
-      const resp = await axios.post(`${API_URL}/stl/projects/${project.id}/send-to-printer?start=${startImmediately}`);
+      const resp = await api.post(`${API_URL}/stl/projects/${project.id}/send-to-printer?start=${startImmediately}`);
       showMessage(resp.data.detail);
     } catch {
       showMessage('Erro ao enviar para impressora', 'error');
@@ -153,7 +152,7 @@ export default function FileExplorer() {
     if (e) e.stopPropagation();
     if (!confirm(`Remover projeto "${project.title || project.name}" permanentemente?`)) return;
     try {
-      await axios.delete(`${API_URL}/stl/projects/${project.id}`);
+      await api.delete(`${API_URL}/stl/projects/${project.id}`);
       showMessage('Projeto removido!');
       loadProjects();
     } catch {
@@ -164,7 +163,7 @@ export default function FileExplorer() {
 
   const handleEditProject = async (id, title, description) => {
     try {
-      const resp = await axios.patch(`${API_URL}/stl/projects/${id}`, { title, description });
+      const resp = await api.patch(`${API_URL}/stl/projects/${id}`, { title, description });
       showMessage(resp.data.info_pending === false && title ? 'Projeto atualizado! Produto criado automaticamente.' : 'Projeto atualizado!');
       setEditing(null);
       loadProjects();

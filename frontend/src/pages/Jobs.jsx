@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 
 export default function Jobs() {
   const [queue, setQueue] = useState([]);
@@ -12,12 +11,23 @@ export default function Jobs() {
   const loadQueue = async () => {
     try {
       setError(null);
-      const res = await axios.get(`${API_URL}/jobs/queue`);
+      const res = await api.get(`${API_URL}/jobs/queue`);
       setQueue(res.data.queue || []);
     } catch {
       setError('Moonraker offline');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRemove = async (job) => {
+    const jobId = Array.isArray(job) ? job[1] : (job.job_id || job.filename);
+    if (!confirm('Remover este job da fila?')) return;
+    try {
+      await api.delete(`${API_URL}/jobs/queue`, { params: { job_id: jobId } });
+      loadQueue();
+    } catch {
+      setError('Erro ao remover job');
     }
   };
 
@@ -59,7 +69,7 @@ export default function Jobs() {
               </div>
               <div style={{ flex: 1, textAlign: 'center', color: 'var(--text)' }}>{idx + 1}</div>
               <div style={{ flex: 1, textAlign: 'right' }}>
-                <button onClick={() => {}} style={{
+                <button onClick={() => handleRemove(job)} style={{
                   padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--danger)',
                   background: 'transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--danger)',
                 }}>Remover</button>

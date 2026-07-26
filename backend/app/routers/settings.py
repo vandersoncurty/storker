@@ -46,3 +46,39 @@ def update_thingiverse(payload: schemas.SettingsThingiverse):
     settings.thingiverse = payload
     save_settings(settings)
     return settings.thingiverse
+
+
+@router.patch("/store", response_model=schemas.SettingsStore)
+def update_store(payload: schemas.SettingsStore):
+    """Atualiza apenas as configurações da loja."""
+    settings = load_settings()
+    settings.store = payload
+    save_settings(settings)
+    return settings.store
+
+
+@router.patch("/printers", response_model=schemas.SettingsPrinters)
+def update_printers(payload: schemas.SettingsPrinters):
+    """Atualiza apenas as configurações de impressoras."""
+    settings = load_settings()
+    settings.printers = payload
+    save_settings(settings)
+    return settings.printers
+
+
+@router.patch("/costs", response_model=schemas.SettingsCosts)
+def update_costs(payload: schemas.SettingsCosts):
+    """Atualiza apenas as configurações de custos."""
+    settings = load_settings()
+    settings.costs = payload
+    save_settings(settings)
+    return settings.costs
+
+
+@router.patch("/finance", response_model=schemas.SettingsFinance)
+def update_finance(payload: schemas.SettingsFinance):
+    """Atualiza apenas as configurações financeiras."""
+    settings = load_settings()
+    settings.finance = payload
+    save_settings(settings)
+    return settings.finance

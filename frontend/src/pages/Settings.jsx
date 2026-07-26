@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 
 const categories = [
   { id: 'thingiverse', label: 'Thingiverse' },
@@ -26,7 +25,7 @@ export default function Settings() {
 
   const loadSettings = async () => {
     try {
-      const res = await axios.get(`${API_URL}/settings/`);
+      const res = await api.get(`${API_URL}/settings/`);
       setSettings(res.data);
     } catch (err) {
       setMessage('Erro ao carregar configurações');
@@ -48,7 +47,7 @@ export default function Settings() {
     setSaving(true);
     setMessage(null);
     try {
-      await axios.put(`${API_URL}/settings/`, settings);
+      await api.put(`${API_URL}/settings/`, settings);
       setMessage('Configurações salvas!');
       setMessageType('success');
     } catch {
@@ -157,8 +156,8 @@ function ThingiverseTab({ data, onChange }) {
     try {
       setLoadingCol(true);
       const [colRes, dlRes] = await Promise.all([
-        axios.get(`${API_URL}/thingiverse/collections`),
-        axios.get(`${API_URL}/thingiverse/downloads`),
+        api.get(`${API_URL}/thingiverse/collections`),
+        api.get(`${API_URL}/thingiverse/downloads`),
       ]);
       setCollections(colRes.data);
       setDownloads(dlRes.data);
@@ -174,7 +173,7 @@ function ThingiverseTab({ data, onChange }) {
   const handleAddCollection = async () => {
     if (!newCollectionId) return;
     try {
-      await axios.post(`${API_URL}/thingiverse/collections`, {
+      await api.post(`${API_URL}/thingiverse/collections`, {
         collection_id: parseInt(newCollectionId),
         name: newCollectionName || '',
       });
@@ -188,7 +187,7 @@ function ThingiverseTab({ data, onChange }) {
 
   const handleRemoveCollection = async (collectionId) => {
     try {
-      await axios.delete(`${API_URL}/thingiverse/collections/${collectionId}`);
+      await api.delete(`${API_URL}/thingiverse/collections/${collectionId}`);
       loadCollections();
     } catch {
       alert('Erro ao remover collection.');
@@ -199,7 +198,7 @@ function ThingiverseTab({ data, onChange }) {
     setSyncing(true);
     setSyncResult(null);
     try {
-      const res = await axios.post(`${API_URL}/thingiverse/sync`);
+      const res = await api.post(`${API_URL}/thingiverse/sync`);
       setSyncResult(res.data);
       loadCollections();
     } catch {
@@ -213,7 +212,7 @@ function ThingiverseTab({ data, onChange }) {
     setSyncing(true);
     setSyncResult(null);
     try {
-      const res = await axios.post(`${API_URL}/thingiverse/sync/${collectionId}`);
+      const res = await api.post(`${API_URL}/thingiverse/sync/${collectionId}`);
       setSyncResult(res.data);
       loadCollections();
     } catch {
@@ -534,7 +533,7 @@ function UsersTab() {
 
   const loadUsers = async () => {
     try {
-      const res = await axios.get(`${API_URL}/auth/users`);
+      const res = await api.get(`${API_URL}/auth/users`);
       setUsers(res.data);
     } catch {
       setMessage('Erro ao carregar usuários');
@@ -548,7 +547,7 @@ function UsersTab() {
   const handleCreate = async () => {
     if (!newUsername || !newPassword) return;
     try {
-      await axios.post(`${API_URL}/auth/users`, null, {
+      await api.post(`${API_URL}/auth/users`, null, {
         params: { username: newUsername, password: newPassword },
       });
       setNewUsername('');
@@ -563,7 +562,7 @@ function UsersTab() {
   const handleUpdate = async (username) => {
     if (!editPassword) return;
     try {
-      await axios.patch(`${API_URL}/auth/users/${username}`, null, {
+      await api.patch(`${API_URL}/auth/users/${username}`, null, {
         params: { password: editPassword },
       });
       setEditingUser(null);
@@ -578,7 +577,7 @@ function UsersTab() {
   const handleDelete = async (username) => {
     if (!confirm(`Remover usuário "${username}"?`)) return;
     try {
-      await axios.delete(`${API_URL}/auth/users/${username}`);
+      await api.delete(`${API_URL}/auth/users/${username}`);
       setMessage('Usuário removido!');
       loadUsers();
     } catch {

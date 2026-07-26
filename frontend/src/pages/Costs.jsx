@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 
 function fmt(v) {
   if (v == null || isNaN(v)) return '0,00';
@@ -70,8 +69,8 @@ export default function Costs() {
     try {
       setError(null);
       const [sRes, spRes] = await Promise.all([
-        axios.get(`${API_URL}/costs/settings`),
-        axios.get(`${API_URL}/filament/spools`),
+        api.get(`${API_URL}/costs/settings`),
+        api.get(`${API_URL}/filament/spools`),
       ]);
       const cs = sRes.data;
       setPrinterWatts(cs.printer_watts ?? 250);
@@ -105,7 +104,7 @@ export default function Costs() {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await axios.post(`${API_URL}/costs/parse-gcode`, formData);
+      const res = await api.post(`${API_URL}/costs/parse-gcode`, formData);
       const { parsed, settings: cs, spools: sp } = res.data;
       setFilamentGrams(parsed.filament_grams);
       const hours = parsed.print_time_seconds / 3600;
@@ -130,7 +129,7 @@ export default function Costs() {
 
   const handleCalculate = () => {
     const seconds = Math.round(printTimeHours * 3600);
-    axios.post(`${API_URL}/costs/estimate`, {
+    api.post(`${API_URL}/costs/estimate`, {
       filament_grams: filamentGrams,
       print_time_seconds: seconds,
       filament_price_per_kg: filamentPriceKg,

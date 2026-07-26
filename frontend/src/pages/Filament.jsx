@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 
 function fmt(v) {
   if (v == null) return '—';
@@ -21,7 +20,7 @@ export default function Filament() {
   const loadSpools = async () => {
     try {
       setError(null);
-      const res = await axios.get(`${API_URL}/filament/spools`);
+      const res = await api.get(`${API_URL}/filament/spools`);
       setSpools(res.data.spools || []);
     } catch {
       setError('Spoolman offline');

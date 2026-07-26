@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
@@ -17,8 +16,8 @@ export default function Dashboard() {
       setError(null);
       setLoading(true);
       const [resp, chartResp] = await Promise.all([
-        axios.get(`${API_URL}/dashboard/`),
-        axios.get(`${API_URL}/dashboard/charts`),
+        api.get(`${API_URL}/dashboard/`),
+        api.get(`${API_URL}/dashboard/charts`),
       ]);
       setData(resp.data);
       setCharts(chartResp.data);

@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 import ThingiverseIcon from '../components/ThingiverseIcon';
 
-const COST_DEFAULTS = {
+const FALLBACK_COST = {
   filament_price_per_kg: 100,
   electricity_rate: 0.95,
   printer_watts: 250,
@@ -25,7 +24,7 @@ export default function Products() {
       const params = {};
       if (search.trim()) params.search = search.trim();
       if (filterSliced !== 'all') params.is_sliced = filterSliced === 'sliced';
-      const res = await axios.get(`${API_URL}/products/`, { params });
+      const res = await api.get(`${API_URL}/products/`, { params });
       setProducts(res.data);
     } catch (err) {
       setError('Erro ao carregar produtos');
@@ -36,11 +35,6 @@ export default function Products() {
   }, [search, filterSliced]);
 
   useEffect(() => { loadProducts(); }, [loadProducts]);
-
-  useEffect(() => {
-    const timer = setTimeout(loadProducts, 300);
-    return () => clearTimeout(timer);
-  }, [search, filterSliced, loadProducts]);
 
   if (loading && products.length === 0) return <p>Carregando...</p>;
   if (error) {
@@ -107,7 +101,7 @@ function ProductCard({ product, onEdit }) {
   const primaryImage = product.images.find(i => i.is_primary);
 
   const imageUrl = primaryImage
-    ? `${API_URL}/images/products/${primaryImage.file_path.split('/').pop()}`
+    ? `${API_URL}/images/products/${primaryImage.file_path.split(/[/\\]/).pop()}`
     : null;
 
   const variants = product.variants || [];
@@ -119,7 +113,7 @@ function ProductCard({ product, onEdit }) {
     e.stopPropagation();
     const amount = product.sale_price || product.production_cost || 0;
     try {
-      await axios.post(`${API_URL}/orders/`, { product_id: product.id, amount });
+      await api.post(`${API_URL}/orders/`, { product_id: product.id, amount });
       setOrderMsg('Pedido criado!');
       setTimeout(() => setOrderMsg(null), 2000);
     } catch {
@@ -254,12 +248,19 @@ function EditModal({ product, onClose, onRefresh }) {
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState('success');
   const [showCostCalc, setShowCostCalc] = useState(false);
-  const [costForm, setCostForm] = useState({
-    filament_price_per_kg: COST_DEFAULTS.filament_price_per_kg,
-    electricity_rate: COST_DEFAULTS.electricity_rate,
-    printer_watts: COST_DEFAULTS.printer_watts,
-    markup_percentage: COST_DEFAULTS.markup_percentage,
-  });
+  const [costForm, setCostForm] = useState({ ...FALLBACK_COST });
+
+  useEffect(() => {
+    api.get(`${API_URL}/costs/settings`).then(res => {
+      const s = res.data;
+      setCostForm({
+        filament_price_per_kg: 100,
+        electricity_rate: s.kwh_rate ?? FALLBACK_COST.electricity_rate,
+        printer_watts: s.printer_watts ?? FALLBACK_COST.printer_watts,
+        markup_percentage: s.profit_margin_percent ?? FALLBACK_COST.markup_percentage,
+      });
+    }).catch(() => {});
+  }, []);
   const [costResult, setCostResult] = useState(null);
   const [applying, setApplying] = useState(false);
   const [variants, setVariants] = useState(product.variants || []);
@@ -277,7 +278,7 @@ function EditModal({ product, onClose, onRefresh }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axios.patch(`${API_URL}/products/${product.id}`, {
+      await api.patch(`${API_URL}/products/${product.id}`, {
         ...form,
         sale_price: form.sale_price ? parseFloat(form.sale_price) : null,
         production_cost: form.production_cost ? parseFloat(form.production_cost) : null,
@@ -302,7 +303,7 @@ function EditModal({ product, onClose, onRefresh }) {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      await axios.post(`${API_URL}/products/${product.id}/images/upload`, formData);
+      await api.post(`${API_URL}/products/${product.id}/images/upload`, formData);
       showMessage('Imagem enviada!');
       onRefresh();
     } catch (err) {
@@ -315,7 +316,7 @@ function EditModal({ product, onClose, onRefresh }) {
 
   const handleSetPrimary = async (imageId) => {
     try {
-      await axios.patch(`${API_URL}/products/${product.id}/images/${imageId}/primary`);
+      await api.patch(`${API_URL}/products/${product.id}/images/${imageId}/primary`);
       showMessage('Imagem principal atualizada');
       onRefresh();
     } catch (err) {
@@ -327,7 +328,7 @@ function EditModal({ product, onClose, onRefresh }) {
   const handleDeleteImage = async (image) => {
     if (!confirm(`Remover esta imagem?`)) return;
     try {
-      await axios.delete(`${API_URL}/products/${product.id}/images/${image.id}`);
+      await api.delete(`${API_URL}/products/${product.id}/images/${image.id}`);
       showMessage('Imagem removida');
       onRefresh();
     } catch {
@@ -342,7 +343,7 @@ function EditModal({ product, onClose, onRefresh }) {
         print_time_seconds: parseInt(form.print_time_seconds) || 0,
         ...costForm,
       };
-      const res = await axios.post(`${API_URL}/costs/estimate`, payload);
+      const res = await api.post(`${API_URL}/costs/estimate`, payload);
       setCostResult(res.data);
     } catch {
       showMessage('Erro ao calcular custo', 'error');
@@ -357,7 +358,7 @@ function EditModal({ product, onClose, onRefresh }) {
         print_time_seconds: parseInt(form.print_time_seconds) || 0,
         ...costForm,
       };
-      await axios.post(`${API_URL}/costs/apply/${product.id}`, payload);
+      await api.post(`${API_URL}/costs/apply/${product.id}`, payload);
       showMessage('Custo aplicado ao produto!');
       setShowCostCalc(false);
       onRefresh();
@@ -371,7 +372,7 @@ function EditModal({ product, onClose, onRefresh }) {
   const handleDeleteProduct = async () => {
     if (!confirm(`Remover produto "${product.title}" permanentemente?`)) return;
     try {
-      await axios.delete(`${API_URL}/products/${product.id}`);
+      await api.delete(`${API_URL}/products/${product.id}`);
       showMessage('Produto removido');
       onRefresh();
       onClose();
@@ -384,7 +385,7 @@ function EditModal({ product, onClose, onRefresh }) {
     if (!newVariantName.trim()) return;
     setAddingVariant(true);
     try {
-      const res = await axios.post(`${API_URL}/products/${product.id}/variants`, {
+      const res = await api.post(`${API_URL}/products/${product.id}/variants`, {
         name: newVariantName.trim(),
         filament_price_per_kg: parseFloat(newVariantPrice) || 0,
       });
@@ -403,7 +404,7 @@ function EditModal({ product, onClose, onRefresh }) {
   const handleDeleteVariant = async (variant) => {
     if (!confirm(`Remover variante "${variant.name}"?`)) return;
     try {
-      await axios.delete(`${API_URL}/products/${product.id}/variants/${variant.id}`);
+      await api.delete(`${API_URL}/products/${product.id}/variants/${variant.id}`);
       setVariants(prev => prev.filter(v => v.id !== variant.id));
       showMessage('Variante removida');
       onRefresh();
@@ -642,7 +643,7 @@ function EditModal({ product, onClose, onRefresh }) {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                 {product.images.map(img => {
-                  const imgSrc = `${API_URL}/images/products/${img.file_path.split('/').pop()}`;
+                  const imgSrc = `${API_URL}/images/products/${img.file_path.split(/[/\\]/).pop()}`;
                   return (
                     <div key={img.id} style={{
                       aspectRatio: '1', borderRadius: 'var(--radius-sm)', overflow: 'hidden',

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 
 function fmtTime(seconds) {
   if (!seconds) return '-';
@@ -23,8 +22,8 @@ export default function Printers() {
   const loadData = useCallback(async () => {
     try {
       const [s, st] = await Promise.all([
-        axios.get(`${API_URL}/printers/status`),
-        axios.get(`${API_URL}/printers/stats`),
+        api.get(`${API_URL}/printers/status`),
+        api.get(`${API_URL}/printers/stats`),
       ]);
       setStatus(s.data);
       setStats(st.data);
@@ -45,7 +44,7 @@ export default function Printers() {
   const sendCommand = async (cmd) => {
     setSending(cmd);
     try {
-      await axios.post(`${API_URL}/printers/print/${cmd}`);
+      await api.post(`${API_URL}/printers/print/${cmd}`);
       setTimeout(loadData, 500);
     } catch {
       setError(`Erro ao ${cmd}`);

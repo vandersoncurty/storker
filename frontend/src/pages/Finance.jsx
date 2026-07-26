@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 
 function fmt(v) {
   if (v == null || isNaN(v)) return '0,00';
@@ -64,8 +63,8 @@ export default function Finance() {
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
       const [eRes, bRes] = await Promise.all([
-        axios.get(`${API_URL}/finance/entries`, { params }),
-        axios.get(`${API_URL}/finance/balance`, { params }),
+        api.get(`${API_URL}/finance/entries`, { params }),
+        api.get(`${API_URL}/finance/balance`, { params }),
       ]);
       setEntries(eRes.data);
       setBalance(bRes.data);
@@ -91,9 +90,9 @@ export default function Finance() {
       setError(null);
       const payload = { ...form, amount: parseFloat(form.amount) };
       if (editing) {
-        await axios.patch(`${API_URL}/finance/entries/${editing}`, payload);
+        await api.patch(`${API_URL}/finance/entries/${editing}`, payload);
       } else {
-        await axios.post(`${API_URL}/finance/entries`, payload);
+        await api.post(`${API_URL}/finance/entries`, payload);
       }
       setShowForm(false);
       setEditing(null);
@@ -113,7 +112,7 @@ export default function Finance() {
   const handleDelete = async (id) => {
     if (!window.confirm('Remover este lançamento?')) return;
     try {
-      await axios.delete(`${API_URL}/finance/entries/${id}`);
+      await api.delete(`${API_URL}/finance/entries/${id}`);
       loadData();
     } catch {
       setError('Erro ao remover lançamento');

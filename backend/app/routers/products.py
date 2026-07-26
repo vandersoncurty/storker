@@ -186,6 +186,7 @@ def _calc_variant_price(product: models.Product, filament_price_per_kg: float) -
         fixed_cost_per_print=costs.fixed_cost_per_print,
         ecommerce_fee_percent=costs.ecommerce_fee_percent,
         profit_margin_percent=costs.profit_margin_percent,
+        taxes_fees=product.taxes_fees or 0,
     )
     result = estimate_cost(payload)
     return {"production_cost": result.production_cost, "sale_price": result.final_price}

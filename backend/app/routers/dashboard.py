@@ -16,6 +16,9 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 _is_pg = db_engine.url.get_backend_name() in ("postgresql",)
 
+_moonraker_cache = {"data": None, "ts": 0.0}
+_MR_CACHE_TTL = 10  # segundos
+
 
 def _month_format(column):
     if _is_pg:
@@ -79,50 +82,59 @@ async def get_dashboard(db: Session = Depends(get_db)):
 
     moonraker_status = None
     moonraker_error = None
-    try:
-        mr_url = _get_moonraker_url()
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            info_resp = await client.get(f"{mr_url}/printer/info")
-            if info_resp.is_success:
-                info_data = info_resp.json().get("result", {})
-                query_resp = await client.get(
-                    f"{mr_url}/printer/objects/query?print_stats&heater_bed&gcode_move&extruder"
-                )
-                query_data = {}
-                if query_resp.is_success:
-                    query_data = query_resp.json().get("result", {}).get("status", {})
+    import time
+    now = time.time()
+    if now - _moonraker_cache["ts"] < _MR_CACHE_TTL and _moonraker_cache["data"] is not None:
+        cached = _moonraker_cache["data"]
+        moonraker_status = cached["status"]
+        moonraker_error = cached["error"]
+    else:
+        try:
+            mr_url = _get_moonraker_url()
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                info_resp = await client.get(f"{mr_url}/printer/info")
+                if info_resp.is_success:
+                    info_data = info_resp.json().get("result", {})
+                    query_resp = await client.get(
+                        f"{mr_url}/printer/objects/query?print_stats&heater_bed&gcode_move&extruder"
+                    )
+                    query_data = {}
+                    if query_resp.is_success:
+                        query_data = query_resp.json().get("result", {}).get("status", {})
 
-                print_stats = query_data.get("print_stats", {})
-                gcode_move = query_data.get("gcode_move", {})
+                    print_stats = query_data.get("print_stats", {})
+                    gcode_move = query_data.get("gcode_move", {})
 
-                moonraker_status = {
-                    "state": info_data.get("state", "unknown"),
-                    "hostname": info_data.get("hostname", ""),
-                    "firmware_version": info_data.get("firmware_version", ""),
-                    "print_stats": {
-                        "state": print_stats.get("state", ""),
-                        "filename": print_stats.get("filename", ""),
-                        "total_duration": print_stats.get("total_duration", 0),
-                        "print_duration": print_stats.get("print_duration", 0),
-                        "filament_used": print_stats.get("filament_used", 0),
-                        "progress": query_data.get("display_status", {}).get("progress", 0) if "display_status" in query_data else None,
-                    },
-                    "current_position": {
-                        "x": gcode_move.get("gcode_position", [None, None, None, None])[0],
-                        "y": gcode_move.get("gcode_position", [None, None, None, None])[1],
-                        "z": gcode_move.get("gcode_position", [None, None, None, None])[2],
-                    } if gcode_move.get("gcode_position") else None,
-                    "extruder_temperature": query_data.get("extruder", {}).get("temperature", None) if "extruder" in query_data else None,
-                    "heater_bed_temperature": query_data.get("heater_bed", {}).get("temperature", None) if "heater_bed" in query_data else None,
-                }
-            else:
-                moonraker_error = f"Moonraker retornou status {info_resp.status_code}"
-    except httpx.ConnectError:
-        moonraker_error = "Não foi possível conectar ao Moonraker"
-    except httpx.TimeoutException:
-        moonraker_error = "Timeout ao conectar no Moonraker"
-    except Exception as e:
-        moonraker_error = str(e)
+                    moonraker_status = {
+                        "state": info_data.get("state", "unknown"),
+                        "hostname": info_data.get("hostname", ""),
+                        "firmware_version": info_data.get("firmware_version", ""),
+                        "print_stats": {
+                            "state": print_stats.get("state", ""),
+                            "filename": print_stats.get("filename", ""),
+                            "total_duration": print_stats.get("total_duration", 0),
+                            "print_duration": print_stats.get("print_duration", 0),
+                            "filament_used": print_stats.get("filament_used", 0),
+                            "progress": query_data.get("display_status", {}).get("progress", 0) if "display_status" in query_data else None,
+                        },
+                        "current_position": {
+                            "x": gcode_move.get("gcode_position", [None, None, None, None])[0],
+                            "y": gcode_move.get("gcode_position", [None, None, None, None])[1],
+                            "z": gcode_move.get("gcode_position", [None, None, None, None])[2],
+                        } if gcode_move.get("gcode_position") else None,
+                        "extruder_temperature": query_data.get("extruder", {}).get("temperature", None) if "extruder" in query_data else None,
+                        "heater_bed_temperature": query_data.get("heater_bed", {}).get("temperature", None) if "heater_bed" in query_data else None,
+                    }
+                else:
+                    moonraker_error = f"Moonraker retornou status {info_resp.status_code}"
+        except httpx.ConnectError:
+            moonraker_error = "Não foi possível conectar ao Moonraker"
+        except httpx.TimeoutException:
+            moonraker_error = "Timeout ao conectar no Moonraker"
+        except Exception as e:
+            moonraker_error = str(e)
+        _moonraker_cache["data"] = {"status": moonraker_status, "error": moonraker_error}
+        _moonraker_cache["ts"] = now
 
     return {
         "products": {

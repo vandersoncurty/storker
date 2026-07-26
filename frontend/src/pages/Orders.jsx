@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { API_URL } from '../api';
+import api, { API_URL } from '../api';
 
 function fmt(v) {
   if (v == null || isNaN(v)) return '0,00';
@@ -41,7 +40,7 @@ export default function Orders() {
       const params = {};
       if (statusFilter) params.status = statusFilter;
       if (search) params.search = search;
-      const res = await axios.get(`${API_URL}/orders/`, { params });
+      const res = await api.get(`${API_URL}/orders/`, { params });
       setOrders(res.data);
     } catch {
       setError('Erro ao carregar pedidos');
@@ -52,7 +51,7 @@ export default function Orders() {
 
   const loadProducts = async () => {
     try {
-      const res = await axios.get(`${API_URL}/products/`, { params: { limit: 200 } });
+      const res = await api.get(`${API_URL}/products/`, { params: { limit: 200 } });
       setProducts(res.data);
     } catch {}
   };
@@ -67,9 +66,9 @@ export default function Orders() {
     try {
       setError(null);
       if (editing) {
-        await axios.patch(`${API_URL}/orders/${editing}`, payload);
+        await api.patch(`${API_URL}/orders/${editing}`, payload);
       } else {
-        await axios.post(`${API_URL}/orders/`, payload);
+        await api.post(`${API_URL}/orders/`, payload);
       }
       setShowForm(false);
       setEditing(null);
@@ -96,7 +95,7 @@ export default function Orders() {
 
   const handleStatus = async (order, status) => {
     try {
-      await axios.patch(`${API_URL}/orders/${order.id}/status`, null, { params: { status } });
+      await api.patch(`${API_URL}/orders/${order.id}/status`, null, { params: { status } });
       loadOrders();
     } catch {
       setError('Erro ao atualizar status');
@@ -106,7 +105,7 @@ export default function Orders() {
   const handleDelete = async (id) => {
     if (!window.confirm('Remover este pedido?')) return;
     try {
-      await axios.delete(`${API_URL}/orders/${id}`);
+      await api.delete(`${API_URL}/orders/${id}`);
       loadOrders();
     } catch {
       setError('Erro ao remover pedido');

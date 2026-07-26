@@ -24,6 +24,7 @@ class CostEstimate(BaseModel):
     fixed_cost_per_print: float = 0.0
     ecommerce_fee_percent: float = 0.0
     profit_margin_percent: float = 30.0
+    taxes_fees: float = 0.0
 
 
 class CostResult(BaseModel):
@@ -32,6 +33,7 @@ class CostResult(BaseModel):
     labor_cost: float
     fixed_cost: float
     production_cost: float
+    taxes_fees: float
     ecommerce_fee: float
     profit_amount: float
     final_price: float
@@ -40,10 +42,11 @@ class CostResult(BaseModel):
 @router.post("/estimate", response_model=CostResult)
 def estimate_cost(payload: CostEstimate):
     hours = payload.print_time_seconds / 3600
+    labor_hours = payload.labor_hours if payload.labor_hours > 0 else hours
 
     filament_cost = (payload.filament_grams / 1000) * payload.filament_price_per_kg
     electricity_cost = (payload.printer_watts / 1000) * hours * payload.kwh_rate
-    labor_cost = payload.labor_cost_per_hour * payload.labor_hours
+    labor_cost = payload.labor_cost_per_hour * labor_hours
     fixed_cost = payload.fixed_cost_per_print
 
     production_cost = filament_cost + electricity_cost + labor_cost + fixed_cost
@@ -57,12 +60,15 @@ def estimate_cost(payload: CostEstimate):
     ecommerce_fee = final_price - base_with_margin
     profit_amount = base_with_margin - production_cost
 
+    final_price = final_price + payload.taxes_fees
+
     return CostResult(
         filament_cost=round(filament_cost, 2),
         electricity_cost=round(electricity_cost, 2),
         labor_cost=round(labor_cost, 2),
         fixed_cost=round(fixed_cost, 2),
         production_cost=round(production_cost, 2),
+        taxes_fees=round(payload.taxes_fees, 2),
         ecommerce_fee=round(ecommerce_fee, 2),
         profit_amount=round(profit_amount, 2),
         final_price=round(final_price, 2),
@@ -154,7 +160,7 @@ async def parse_gcode(file: UploadFile = File(...)):
 
 
 @router.post("/auto/{project_id}")
-def auto_calculate(project_id: int, db: Session = Depends(get_db)):
+async def auto_calculate(project_id: int, db: Session = Depends(get_db)):
     project = db.query(models.StlProject).filter(models.StlProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
@@ -177,8 +183,7 @@ def auto_calculate(project_id: int, db: Session = Depends(get_db)):
     if product:
         best_price = 0
         try:
-            import asyncio
-            spools = asyncio.run(list_spools())
+            spools = await list_spools()
             for spool in spools:
                 f = spool.get("filament", {})
                 p = f.get("price") or spool.get("price") or 0

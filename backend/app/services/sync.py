@@ -137,8 +137,11 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                 thing_dir.mkdir(parents=True, exist_ok=True)
 
                 for stl in stl_files:
+                    stl_dest = thing_dir / stl["name"]
+                    if stl_dest.exists():
+                        continue
                     content = await thingiverse.download_file(stl["download_url"])
-                    (thing_dir / stl["name"]).write_bytes(content)
+                    stl_dest.write_bytes(content)
 
                 existing_product = db.query(Product).filter(Product.thing_id == thing_id).first()
                 if existing_product:

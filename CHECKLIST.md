@@ -13,9 +13,9 @@
 
 ### Impressoras e Jobs
 - Controles da impressora — pause/resume/cancel + progress bar + temperaturas + auto-refresh 3s
-- Enviar GCode para impressora — botão "enviar para fila" e "imprimir agora" no StlFiles
+- Enviar GCode para impressora — botão "enviar para fila" e "imprimir agora" no FileExplorer
 - "Enviar para fila" — funcional com upload para Moonraker + opção de iniciar impressão
-- **Jobs "Remover"** — opção escondida se projeto não tem GCode
+- **Jobs "Remover"** — botão funcional com chamada `DELETE /jobs/queue` ao Moonraker
 
 ### STL e Arquivos
 - Upload de ZIP (extraído no backend)
@@ -23,17 +23,23 @@
 - Excluir produtos / projetos STL / imagens pelo frontend
 - Busca e filtro de produtos (search + is_sliced)
 - Visualizar arquivos dentro do projeto STL — modal "Editar" lista STLs e GCode
-- Download individual de STL/GCode do StlFiles (ícones de download)
-- Vincular GCode do StlFiles (botão + input ao lado)
+- Download individual de STL/GCode do FileExplorer (ícones de download)
+- Vincular GCode do FileExplorer (botão + input ao lado)
 - Visualizador 3D de STL — three.js com OrbitControls + STLLoader
 - Sync automático agendado — background task criada (lê `sync_interval` do settings)
-- Thingiverse.jsx órfão — removido (substituído pelo Settings + StlFiles)
+- StlFiles.jsx removido (substituído pelo FileExplorer.jsx unificado)
 
 ### Settings
 - Aba "Loja" — campos reais: nome, moeda, imposto, margem
 - Aba "Impressoras" — campo servidor Moonraker padrão
 - Aba "Custos" — campos kWh, watts, mão de obra, custo fixo, taxa e-commerce, margem
 - Aba "Financeiro" — categorias de entrada/saída, saldo inicial
+- PATCH individual para todas as categorias (store, printers, costs, finance)
+
+### Custos e Cálculos
+- **labor_hours** — calculado automaticamente a partir do `print_time_seconds` se não fornecido
+- **taxes_fees** — incluído no cálculo de custo (`CostEstimate.taxes_fees`) e no preço final
+- **Custos fixos no modal de Produtos** — carrega de `GET /costs/settings` em vez de hardcoded
 
 ### Infraestrutura
 - Otimização de imagens — redimensionamento para 1920px + compressão JPEG 85% via Pillow no upload
@@ -41,40 +47,27 @@
 - Migração segura — `check_and_migrate` adiciona colunas via ALTER TABLE (sem deletar DB)
 - Suporte PostgreSQL — via `DB_*` env vars com conexão segura
 - Gráficos no Dashboard — barras por mês (produtos/pedidos/projetos) + distribuição de preços
-- Autenticação — login JWT (admin/admin) + tela de login + módulo completo
-- Testes — ~67 testes: dashboard, stl_projects, image upload, settings, orders, sync, services
+- Autenticação — login JWT (admin/admin) + tela de login + `Depends(get_current_user)` em todas as rotas
+- **axios centralizado** — instância única em `api.js` com interceptors de auth + redirect 401
+- **Image URL** — usa `split(/[/\\]/).pop()` em vez de `split('/').pop()` para suportar subdiretórios
+- **Path traversal protegido** — `delete_project` valida path contra diretórios permitidos
+- **Dashboard cache** — Moonraker status cacheado por 10s para evitar HTTP excessivos
+- **Sync de-duplicação** — não re-download STLs se arquivo já existe no destino
+- **Sync scheduler eficiente** — dorme 3600s se `sync_interval=0`, só acorda a cada `interval * 60` quando ativo
+- **costs/auto/{project_id}** — substituído `asyncio.run()` por `async/await` adequado
+- **Products double load** — removido debounce duplicado em `Products.jsx`
+- **Testes** — 93 testes: +finance, +costs, +printers (skip), +jobs (skip), +filament (skip)
+- **Orders** — busca, filtro por status, paginação via skip/limit
 
 ---
 
 ## 📋 Pendentes
-
-### 🔴 Crítico (resolvidos)
-- ~~**Página de Pedidos (frontend)** — `Orders.jsx` criado com CRUD completo + status + busca/filtro.~~
-- ~~**Autenticação nas rotas** — `Depends(get_current_user)` adicionado a todos os routers (exceto auth).~~
-- ~~**Relacionamento Order-Product** — `OrderItem` model adicionado com FK para Order e Product, exposto na API.~~
-
-### 🟡 Parciais / Bugs
-- **Settings PATCH individuais** — Só `moonraker`, `spoolman` e `thingiverse` têm PATCH. `store`, `printers`, `costs` e `finance` só via PUT completo.
-- **Jobs "Remover" não funciona** — Botão "Remover" na fila tem `onClick={() => {}}` (no-op). Não há chamada de API.
-- **Produtos: double load** — `Products.jsx` dispara `loadProducts()` duas vezes ao montar (useEffect + debounce).
-- **Custos fixos no modal de Produtos** — Usa `COST_DEFAULTS` hardcoded em vez de buscar de `GET /costs/settings`.
-- **costs/auto/{project_id}** — Usa `asyncio.run()` dentro de endpoint síncrono (anti-pattern).
-- **Dashboard: cache Moonraker** — Cache do status para não fazer HTTP a cada load.
-- **labor_hours nos cálculos** — `link-gcode` e criação de variante nunca passam `labor_hours`, então mão de obra nunca é calculada.
-- **taxes_fees field** — Existe no model Product mas não é usado em nenhum cálculo ou endpoint.
-- **Sync: de-duplicação de arquivos** — Re-download de todos os arquivos a cada sync, mesmo se não mudaram.
-- **Sync scheduler ineficiente** — Acorda a cada 60s mesmo com `sync_interval=0`.
-- **Path traversal em delete_project** — `shutil.rmtree(proj_path)` não valida se path está dentro de diretórios permitidos.
-- **Testes faltantes** — Sem testes para `finance`, `costs` (estimate/parse/auto), `printers` (status/stats), `jobs` (queue), `filament`.
-- **axios instance** — Cada página importa `axios` diretamente; sem interceptors centralizados.
-- **Image URL frágil** — `file_path.split('/').pop()` quebra se houver subdiretórios.
-- **Orders: paginação + filtros** — Adicionar filtros (status, data) e paginação no backend.
 
 ### ⬆️ Bloqueado (Requisitos externos)
 - **Shopee integration** — Webhook/polling para importar pedidos. ⚠️ Requer CNPJ + App registrado na Shopee Open Platform (https://open.shopee.com). Sem previsão.
 
 ---
 
-**Resumo:** 30 concluídos | 0 críticos | 12 parciais | 1 bloqueado
+**Resumo:** 45 concluídos | 0 críticos | 0 parciais | 1 bloqueado
 
 _Última atualização: Julho 2026_

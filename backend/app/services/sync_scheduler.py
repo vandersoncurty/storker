@@ -9,13 +9,11 @@ from . import sync
 
 logger = logging.getLogger(__name__)
 
-SYNC_TIMEOUT = 300  # 5 minutos
+SYNC_TIMEOUT = 300
 
 
 async def run_scheduled_sync():
-    """Loop principal: verifica settings a cada 60s e dispara sync se devido."""
     await asyncio.sleep(30)
-    last_run = 0.0
     while True:
         try:
             settings = load_settings()
@@ -33,8 +31,8 @@ async def run_scheduled_sync():
                     logger.error("Erro no sync automático: %s", e)
                 finally:
                     db.close()
-                last_run = asyncio.get_event_loop().time()
-            await asyncio.sleep(60)
+            sleep_sec = interval * 60 if interval > 0 else 3600
+            await asyncio.sleep(sleep_sec)
         except asyncio.CancelledError:
             break
         except Exception as e:
