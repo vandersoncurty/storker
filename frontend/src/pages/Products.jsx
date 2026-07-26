@@ -833,7 +833,16 @@ function EditModal({ product, onClose, onRefresh }) {
                           </label>
                           <label style={{ display: 'grid', gap: '2px' }}>
                             <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text)' }}>Carretel</span>
-                            <select value={editVariantForm.spool_id} onChange={e => updateEditField('spool_id', e.target.value)}
+                            <select value={editVariantForm.spool_id} onChange={e => {
+                              const id = e.target.value;
+                              updateEditField('spool_id', id);
+                              if (id) {
+                                const spool = spools.find(s => s.id === parseInt(id));
+                                if (spool?.price && spool?.initial_weight) {
+                                  updateEditField('filament_price_per_kg', (spool.price / spool.initial_weight * 1000).toFixed(2));
+                                }
+                              }
+                            }}
                               style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg)', color: 'var(--text-h)' }}>
                               <option value="">Nenhum</option>
                               {spools.map(s => (
@@ -989,7 +998,16 @@ function EditModal({ product, onClose, onRefresh }) {
                 </label>
                 <label style={{ display: 'grid', gap: '4px' }}>
                   <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Carretel</span>
-                  <select value={newVariantSpoolId} onChange={e => setNewVariantSpoolId(e.target.value)} style={{
+                  <select value={newVariantSpoolId} onChange={e => {
+                    const id = e.target.value;
+                    setNewVariantSpoolId(id);
+                    if (id) {
+                      const spool = spools.find(s => s.id === parseInt(id));
+                      if (spool?.price && spool?.initial_weight) {
+                        setNewVariantPrice((spool.price / spool.initial_weight * 1000).toFixed(2));
+                      }
+                    }
+                  }} style={{
                     padding: '6px 10px', borderRadius: 'var(--radius-sm)',
                     border: '1px solid var(--border)', fontSize: '13px',
                     background: 'var(--bg)', color: 'var(--text-h)',
