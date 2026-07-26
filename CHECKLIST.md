@@ -48,10 +48,10 @@
 
 ## 📋 Pendentes
 
-### 🔴 Crítico
-- **Página de Pedidos (frontend)** — Backend completo (`/orders/` com CRUD + status), mas não existe `Orders.jsx`. O menu "Pedidos" na sidebar renderiza "Em breve."
-- **Autenticação nas rotas** — `get_current_user` existe em `auth.py` mas nenhuma rota usa `Depends(get_current_user)`. Todas as APIs são públicas.
-- **Relacionamento Order-Product** — `Order` não tem `OrderItem` nem FK para `Product`. Pedidos não rastreiam quais produtos foram vendidos.
+### 🔴 Crítico (resolvidos)
+- ~~**Página de Pedidos (frontend)** — `Orders.jsx` criado com CRUD completo + status + busca/filtro.~~
+- ~~**Autenticação nas rotas** — `Depends(get_current_user)` adicionado a todos os routers (exceto auth).~~
+- ~~**Relacionamento Order-Product** — `OrderItem` model adicionado com FK para Order e Product, exposto na API.~~
 
 ### 🟡 Parciais / Bugs
 - **Settings PATCH individuais** — Só `moonraker`, `spoolman` e `thingiverse` têm PATCH. `store`, `printers`, `costs` e `finance` só via PUT completo.
@@ -75,6 +75,6 @@
 
 ---
 
-**Resumo:** 27 concluídos | 3 críticos | 12 parciais | 1 bloqueado
+**Resumo:** 30 concluídos | 0 críticos | 12 parciais | 1 bloqueado
 
 _Última atualização: Julho 2026_

@@ -1,13 +1,14 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import CORS_ORIGINS, PRODUCT_IMAGES_DIR
 from .database import check_and_migrate
 from .routers import products, orders, settings, thingiverse, stl_projects, dashboard, printers, jobs, costs, filament, auth, finance
+from .routers.auth import get_current_user
 
 check_and_migrate()
 
@@ -77,18 +78,18 @@ app.add_middleware(
 PRODUCT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images/products", StaticFiles(directory=str(PRODUCT_IMAGES_DIR)), name="product_images")
 
-app.include_router(products.router)
-app.include_router(orders.router)
-app.include_router(settings.router)
-app.include_router(thingiverse.router)
-app.include_router(stl_projects.router)
-app.include_router(dashboard.router)
-app.include_router(printers.router)
-app.include_router(jobs.router)
-app.include_router(costs.router)
-app.include_router(filament.router)
+app.include_router(products.router, dependencies=[Depends(get_current_user)])
+app.include_router(orders.router, dependencies=[Depends(get_current_user)])
+app.include_router(settings.router, dependencies=[Depends(get_current_user)])
+app.include_router(thingiverse.router, dependencies=[Depends(get_current_user)])
+app.include_router(stl_projects.router, dependencies=[Depends(get_current_user)])
+app.include_router(dashboard.router, dependencies=[Depends(get_current_user)])
+app.include_router(printers.router, dependencies=[Depends(get_current_user)])
+app.include_router(jobs.router, dependencies=[Depends(get_current_user)])
+app.include_router(costs.router, dependencies=[Depends(get_current_user)])
+app.include_router(filament.router, dependencies=[Depends(get_current_user)])
 app.include_router(auth.router)
-app.include_router(finance.router)
+app.include_router(finance.router, dependencies=[Depends(get_current_user)])
 
 
 @app.get("/", tags=["root"])

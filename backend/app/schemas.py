@@ -110,12 +110,24 @@ class OrderUpdate(BaseModel):
     status: Optional[str] = None
 
 
+class OrderItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: int
+    product_id: int
+    quantity: int
+    unit_price: Optional[float] = None
+    product: Optional[ProductResponse] = None
+
+
 class OrderResponse(OrderBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     status: str
     product: Optional[ProductResponse] = None
+    items: list[OrderItemResponse] = []
     created_at: datetime
 
 
