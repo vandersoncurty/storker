@@ -14,11 +14,12 @@ const FALLBACK_COST = {
   shopee_tax_pct: 0,
 };
 
-export default function Products() {
+export default function Products({ onNavigate }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [quickOrderProduct, setQuickOrderProduct] = useState(null);
   const [search, setSearch] = useState('');
   const [filterSliced, setFilterSliced] = useState('all');
 
@@ -92,17 +93,163 @@ export default function Products() {
           gap: '16px',
         }}>
           {products.map(p => (
-            <ProductCard key={p.id} product={p} onEdit={setEditing} />
+            <ProductCard key={p.id} product={p} onEdit={setEditing} onOrder={setQuickOrderProduct} />
           ))}
         </div>
       )}
       {editing && <ErrorBoundary key={editing.id}><EditModal product={editing} onClose={() => setEditing(null)} onRefresh={loadProducts} /></ErrorBoundary>}
+      {quickOrderProduct && (
+        <QuickOrderModal
+          product={quickOrderProduct}
+          onClose={() => setQuickOrderProduct(null)}
+          onNavigate={onNavigate}
+          onSaved={() => setQuickOrderProduct(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ProductCard({ product, onEdit }) {
-  const [orderMsg, setOrderMsg] = useState(null);
+function QuickOrderModal({ product, onClose, onNavigate, onSaved }) {
+  const [variants] = useState(product.variants || []);
+  const [selectedVariantId, setSelectedVariantId] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [buyerName, setBuyerName] = useState('');
+  const [buyerContact, setBuyerContact] = useState('');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const selectedVariant = variants.find(v => v.id === parseInt(selectedVariantId));
+
+  const unitPrice = selectedVariant?.sale_price || product.sale_price || 0;
+  const totalAmount = (parseFloat(quantity) || 1) * unitPrice;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.post(`${API_URL}/orders/`, {
+        product_id: product.id,
+        variant_id: selectedVariantId ? parseInt(selectedVariantId) : null,
+        quantity: parseInt(quantity) || 1,
+        amount: totalAmount || null,
+        buyer_name: buyerName || null,
+        buyer_contact: buyerContact || null,
+        notes: notes || null,
+      });
+      onSaved();
+      onNavigate('orders');
+    } catch {
+      setError('Erro ao criar pedido');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000,
+    }} onClick={onClose}>
+      <div style={{
+        background: 'var(--bg)', borderRadius: 'var(--radius-lg)',
+        padding: '24px', width: '440px', maxWidth: '90vw',
+        display: 'grid', gap: '14px', boxShadow: 'var(--shadow-lg)',
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '16px' }}>Novo Pedido</h3>
+          <button onClick={onClose} style={{
+            padding: '4px 8px', border: 'none', background: 'transparent',
+            cursor: 'pointer', fontSize: '18px', color: 'var(--text)',
+          }}>✕</button>
+        </div>
+
+        <div style={{
+          padding: '12px', borderRadius: 'var(--radius-sm)',
+          background: 'var(--bg-muted)', fontSize: '13px',
+        }}>
+          <div style={{ fontWeight: 600, color: 'var(--text-h)' }}>{product.title}</div>
+          {product.description && (
+            <div style={{ color: 'var(--text)', marginTop: '2px', fontSize: '12px' }}>{product.description}</div>
+          )}
+        </div>
+
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Variante</span>
+          <select value={selectedVariantId} onChange={e => setSelectedVariantId(e.target.value)} style={{
+            padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+            fontSize: '13px', background: 'var(--bg)', color: 'var(--text-h)',
+          }}>
+            <option value="">{variants.length > 0 ? 'Selecionar variante' : 'Sem variantes'}</option>
+            {variants.map(v => (
+              <option key={v.id} value={v.id}>
+                {v.name} {v.shopee ? '(Shopee)' : ''} — R$ {v.sale_price?.toFixed(2) || '—'}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <label style={{ display: 'grid', gap: '4px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Quantidade</span>
+            <input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)}
+              style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+          </label>
+          <div style={{ display: 'grid', gap: '4px', alignContent: 'end' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Total</span>
+            <div style={{
+              padding: '8px 10px', borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)', fontSize: '13px',
+              fontWeight: 700, color: 'var(--accent)', background: 'var(--bg-muted)',
+            }}>
+              R$ {totalAmount.toFixed(2)}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <label style={{ display: 'grid', gap: '4px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Comprador</span>
+            <input value={buyerName} onChange={e => setBuyerName(e.target.value)}
+              placeholder="Nome" style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+          </label>
+          <label style={{ display: 'grid', gap: '4px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Contato</span>
+            <input value={buyerContact} onChange={e => setBuyerContact(e.target.value)}
+              placeholder="Tel / Email" style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+          </label>
+        </div>
+
+        <label style={{ display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Observações</span>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="Opcional" rows={2} style={{
+              padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+              fontSize: '13px', resize: 'vertical', background: 'var(--bg)', color: 'var(--text-h)',
+            }} />
+        </label>
+
+        {error && <div style={{ color: 'var(--danger)', fontSize: '13px' }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{
+            padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+            background: 'transparent', cursor: 'pointer', fontSize: '13px', color: 'var(--text)',
+          }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{
+            padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: 'none',
+            background: saving ? 'var(--border-h)' : 'var(--accent)', color: '#fff',
+            cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px',
+          }}>{saving ? 'Salvando...' : 'Criar Pedido'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductCard({ product, onEdit, onOrder }) {
   const primaryImage = product.images.find(i => i.is_primary);
 
   const imageUrl = primaryImage
@@ -114,17 +261,9 @@ function ProductCard({ product, onEdit }) {
   const minPrice = prices.length > 0 ? Math.min(...prices) : null;
   const maxPrice = prices.length > 0 ? Math.max(...prices) : null;
 
-  const handleCreateOrder = async (e) => {
+  const handleCreateOrder = (e) => {
     e.stopPropagation();
-    const amount = product.sale_price || product.production_cost || 0;
-    try {
-      await api.post(`${API_URL}/orders/`, { product_id: product.id, amount });
-      setOrderMsg('Pedido criado!');
-      setTimeout(() => setOrderMsg(null), 2000);
-    } catch {
-      setOrderMsg('Erro');
-      setTimeout(() => setOrderMsg(null), 2000);
-    }
+    onOrder(product);
   };
 
   return (
@@ -222,7 +361,6 @@ function ProductCard({ product, onEdit }) {
         )}
 
         <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-          {orderMsg && <span style={{ fontSize: '12px', fontWeight: 600, color: orderMsg === 'Pedido criado!' ? 'var(--success)' : 'var(--danger)' }}>{orderMsg}</span>}
           <button onClick={handleCreateOrder} style={{
             padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)',
             background: 'transparent', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)',

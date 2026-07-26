@@ -123,6 +123,7 @@ class Order(Base):
     order_number = Column(String, nullable=True, index=True)
     shopee_order_id = Column(String, nullable=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    variant_id = Column(Integer, ForeignKey("product_variants.id"), nullable=True)
     quantity = Column(Integer, default=1)
     status = Column(String, default="PENDING")  # PENDING, PRINTING, DONE, SHIPPED
     amount = Column(Float, nullable=True)

@@ -82,7 +82,7 @@ function App() {
       case 'dashboard':
         return <Dashboard />;
       case 'products':
-        return <Products />;
+        return <Products onNavigate={setCurrentPage} />;
       case 'stl':
       case 'explorer':
         return <FileExplorer />;

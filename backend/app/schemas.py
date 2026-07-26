@@ -105,6 +105,7 @@ class OrderBase(BaseModel):
     order_number: Optional[str] = None
     shopee_order_id: Optional[str] = None
     product_id: Optional[int] = None
+    variant_id: Optional[int] = None
     quantity: int = 1
     amount: Optional[float] = None
     buyer_name: Optional[str] = None
@@ -120,6 +121,7 @@ class OrderCreate(OrderBase):
 class OrderUpdate(BaseModel):
     order_number: Optional[str] = None
     product_id: Optional[int] = None
+    variant_id: Optional[int] = None
     quantity: Optional[int] = None
     amount: Optional[float] = None
     buyer_name: Optional[str] = None
