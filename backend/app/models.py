@@ -80,6 +80,7 @@ class ProductVariant(Base):
     sell_in_batch = Column(Boolean, default=False)
     batch_size = Column(Integer, default=1)
     additional_cost = Column(Float, default=0.0)
+    shopee = Column(Boolean, default=False)
     production_cost = Column(Float, nullable=True)
     sale_price = Column(Float, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

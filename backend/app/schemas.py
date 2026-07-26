@@ -48,6 +48,7 @@ class ProductVariantCreate(BaseModel):
     sell_in_batch: bool = False
     batch_size: int = 1
     additional_cost: float = 0.0
+    shopee: bool = False
 
 
 class ProductVariantUpdate(BaseModel):
@@ -57,6 +58,7 @@ class ProductVariantUpdate(BaseModel):
     sell_in_batch: Optional[bool] = None
     batch_size: Optional[int] = None
     additional_cost: Optional[float] = None
+    shopee: Optional[bool] = None
     production_cost: Optional[float] = None
     sale_price: Optional[float] = None
 
@@ -72,6 +74,7 @@ class ProductVariantResponse(BaseModel):
     sell_in_batch: bool = False
     batch_size: int = 1
     additional_cost: float = 0.0
+    shopee: bool = False
     production_cost: Optional[float] = None
     sale_price: Optional[float] = None
     created_at: datetime

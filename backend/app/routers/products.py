@@ -17,7 +17,7 @@ from .. import models, schemas
 from ..paths import rel, abs_path
 from ..services.settings_file import load_settings
 from ..services.spoolman import get_spool
-from .costs import CostEstimate, estimate_cost
+from .costs import CostEstimate, estimate_cost, ShopeeEstimate, calculate_shopee_price
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
@@ -180,7 +180,8 @@ def delete_image(product_id: int, image_id: int, db: Session = Depends(get_db)):
 
 
 def _calc_variant_price(product: models.Product, filament_price_per_kg: float,
-                        additional_cost: float = 0.0, batch_size: int = 1) -> dict:
+                        additional_cost: float = 0.0, batch_size: int = 1,
+                        shopee: bool = False) -> dict:
     settings = load_settings()
     costs = settings.costs
     payload = CostEstimate(
@@ -196,9 +197,26 @@ def _calc_variant_price(product: models.Product, filament_price_per_kg: float,
         taxes_fees=product.taxes_fees or 0,
     )
     base = estimate_cost(payload)
-    prod_cost = base.production_cost * batch_size + additional_cost
+    batch_prod_cost = base.production_cost * batch_size + additional_cost
+
+    if shopee:
+        shopee_payload = ShopeeEstimate(
+            production_cost=batch_prod_cost,
+            profit_margin_percent=costs.profit_margin_percent,
+            shopee_commission_pct=costs.shopee_commission_pct,
+            shopee_fixed_fee=costs.shopee_fixed_fee,
+            shopee_commission_cap=costs.shopee_commission_cap,
+            shopee_tax_pct=costs.shopee_tax_pct,
+        )
+        shopee_result = calculate_shopee_price(shopee_payload)
+        return {
+            "production_cost": round(batch_prod_cost, 2),
+            "sale_price": shopee_result.sale_price,
+            "shopee_result": shopee_result.model_dump(),
+        }
+
     final_price = base.final_price * batch_size + additional_cost
-    return {"production_cost": round(prod_cost, 2), "sale_price": round(final_price, 2)}
+    return {"production_cost": round(batch_prod_cost, 2), "sale_price": round(final_price, 2)}
 
 
 @router.post("/{product_id}/variants", response_model=schemas.ProductVariantResponse)
@@ -217,7 +235,8 @@ async def create_variant(product_id: int, payload: schemas.ProductVariantCreate,
         except Exception:
             pass
 
-    prices = _calc_variant_price(product, filament_price, payload.additional_cost, payload.batch_size)
+    prices = _calc_variant_price(product, filament_price, payload.additional_cost,
+                                 payload.batch_size, shopee=payload.shopee)
 
     variant = models.ProductVariant(
         product_id=product_id,
@@ -227,6 +246,7 @@ async def create_variant(product_id: int, payload: schemas.ProductVariantCreate,
         sell_in_batch=payload.sell_in_batch,
         batch_size=payload.batch_size,
         additional_cost=payload.additional_cost,
+        shopee=payload.shopee,
         production_cost=prices["production_cost"],
         sale_price=prices["sale_price"],
     )
@@ -265,15 +285,19 @@ def update_variant(product_id: int, variant_id: int, payload: schemas.ProductVar
         variant.batch_size = payload.batch_size
     if payload.additional_cost is not None:
         variant.additional_cost = payload.additional_cost
+    if payload.shopee is not None:
+        variant.shopee = payload.shopee
 
     recalc = any(x is not None for x in [
         payload.filament_price_per_kg, payload.production_cost,
         payload.sale_price, payload.batch_size, payload.additional_cost,
+        payload.shopee,
     ])
     if recalc or not variant.production_cost or not variant.sale_price:
         product = db.query(models.Product).filter(models.Product.id == product_id).first()
         prices = _calc_variant_price(product, variant.filament_price_per_kg,
-                                     variant.additional_cost, variant.batch_size)
+                                     variant.additional_cost, variant.batch_size,
+                                     shopee=variant.shopee)
         if payload.production_cost is not None:
             variant.production_cost = payload.production_cost
         else:

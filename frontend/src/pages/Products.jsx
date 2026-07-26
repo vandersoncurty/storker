@@ -297,6 +297,7 @@ function EditModal({ product, onClose, onRefresh }) {
   const [newVariantSellInBatch, setNewVariantSellInBatch] = useState(false);
   const [newVariantBatchSize, setNewVariantBatchSize] = useState(1);
   const [newVariantAdditionalCost, setNewVariantAdditionalCost] = useState('');
+  const [newVariantShopee, setNewVariantShopee] = useState(false);
   const [addingVariant, setAddingVariant] = useState(false);
   const [spools, setSpools] = useState([]);
   const [spoolsLoading, setSpoolsLoading] = useState(true);
@@ -483,6 +484,7 @@ function EditModal({ product, onClose, onRefresh }) {
         sell_in_batch: newVariantSellInBatch,
         batch_size: newVariantSellInBatch ? (parseInt(newVariantBatchSize) || 1) : 1,
         additional_cost: parseFloat(newVariantAdditionalCost) || 0,
+        shopee: newVariantShopee,
       });
       setVariants(prev => [...prev, res.data]);
       setNewVariantName('');
@@ -491,6 +493,7 @@ function EditModal({ product, onClose, onRefresh }) {
       setNewVariantSellInBatch(false);
       setNewVariantBatchSize(1);
       setNewVariantAdditionalCost('');
+      setNewVariantShopee(false);
       showMessage('Variante adicionada!');
       onRefresh();
     } catch {
@@ -520,6 +523,7 @@ function EditModal({ product, onClose, onRefresh }) {
       sell_in_batch: v.sell_in_batch || false,
       batch_size: v.batch_size || 1,
       additional_cost: v.additional_cost || 0,
+      shopee: v.shopee || false,
       production_cost: v.production_cost ?? '',
       sale_price: v.sale_price ?? '',
     });
@@ -543,6 +547,7 @@ function EditModal({ product, onClose, onRefresh }) {
         sell_in_batch: editVariantForm.sell_in_batch,
         batch_size: editVariantForm.sell_in_batch ? (parseInt(editVariantForm.batch_size) || 1) : 1,
         additional_cost: parseFloat(editVariantForm.additional_cost) || 0,
+        shopee: editVariantForm.shopee,
       };
       if (editVariantForm.production_cost !== '') {
         payload.production_cost = parseFloat(editVariantForm.production_cost);
@@ -821,6 +826,12 @@ function EditModal({ product, onClose, onRefresh }) {
                               </label>
                             </>
                           )}
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '12px', color: 'var(--text)' }}>
+                            <input type="checkbox" checked={editVariantForm.shopee}
+                              onChange={e => updateEditField('shopee', e.target.checked)}
+                              style={{ accentColor: '#ee4d2d' }} />
+                            Shopee
+                          </label>
                           <label style={{ display: 'grid', gap: '2px' }}>
                             <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text)' }}>Custo (R$)</span>
                             <input type="number" step="0.01" value={editVariantForm.production_cost}
@@ -859,6 +870,11 @@ function EditModal({ product, onClose, onRefresh }) {
                       <div style={{ flex: 1, display: 'grid', gap: '1px' }}>
                         <div style={{ fontWeight: 600, color: 'var(--text-h)' }}>
                           {v.name}
+                          {v.shopee && <span style={{
+                            marginLeft: '6px', padding: '1px 5px', borderRadius: '3px',
+                            background: '#ee4d2d', color: '#fff', fontSize: '9px', fontWeight: 700,
+                            verticalAlign: 'middle',
+                          }}>Shopee</span>}
                           {spool && <span style={{ fontWeight: 400, color: 'var(--text)', marginLeft: '6px' }}>
                             ({(spool.filament?.name || spool.filament?.material || `Spool #${v.spool_id}`)})
                           </span>}
@@ -938,6 +954,12 @@ function EditModal({ product, onClose, onRefresh }) {
                     onChange={e => setNewVariantSellInBatch(e.target.checked)}
                     style={{ accentColor: 'var(--accent)' }} />
                   Vender em lote
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text)' }}>
+                  <input type="checkbox" checked={newVariantShopee}
+                    onChange={e => setNewVariantShopee(e.target.checked)}
+                    style={{ accentColor: '#ee4d2d' }} />
+                  Shopee
                 </label>
                 {newVariantSellInBatch && (
                   <>
