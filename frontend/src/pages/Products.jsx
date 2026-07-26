@@ -119,7 +119,12 @@ function QuickOrderModal({ product, onClose, onNavigate, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  const selectedVariant = variants.find(v => v.id === parseInt(selectedVariantId));
+  const unitPrice = selectedVariant?.sale_price || product.sale_price || 0;
+  const totalAmount = (parseFloat(quantity) || 1) * unitPrice;
+
   const handleSave = async () => {
+    if (!orderNumber.trim()) { setError('Informe o número do pedido'); return; }
     if (!selectedVariantId && variants.length > 0) { setError('Selecione uma variante'); return; }
     setSaving(true);
     setError(null);
@@ -127,8 +132,9 @@ function QuickOrderModal({ product, onClose, onNavigate, onSaved }) {
       await api.post(`${API_URL}/orders/`, {
         product_id: product.id,
         variant_id: selectedVariantId ? parseInt(selectedVariantId) : null,
-        order_number: orderNumber || null,
+        order_number: orderNumber.trim(),
         quantity: parseInt(quantity) || 1,
+        amount: totalAmount || null,
         notes: notes || null,
       });
       onSaved();
@@ -148,7 +154,7 @@ function QuickOrderModal({ product, onClose, onNavigate, onSaved }) {
     }} onClick={onClose}>
       <div style={{
         background: 'var(--bg)', borderRadius: 'var(--radius-lg)',
-        padding: '24px', width: '400px', maxWidth: '90vw',
+        padding: '24px', width: '420px', maxWidth: '90vw',
         display: 'grid', gap: '14px', boxShadow: 'var(--shadow-lg)',
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -175,16 +181,28 @@ function QuickOrderModal({ product, onClose, onNavigate, onSaved }) {
         </label>
 
         <label style={{ display: 'grid', gap: '4px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Nº do Pedido</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Nº do Pedido *</span>
           <input value={orderNumber} onChange={e => setOrderNumber(e.target.value)}
-            placeholder="Opcional" style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+            placeholder="Ex: #001" style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
         </label>
 
-        <label style={{ display: 'grid', gap: '4px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Quantidade</span>
-          <input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)}
-            style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
-        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <label style={{ display: 'grid', gap: '4px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Quantidade</span>
+            <input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)}
+              style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }} />
+          </label>
+          <div style={{ display: 'grid', gap: '4px', alignContent: 'end' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Total</span>
+            <div style={{
+              padding: '8px 10px', borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)', fontSize: '13px',
+              fontWeight: 700, color: 'var(--accent)', background: 'var(--bg-muted)',
+            }}>
+              R$ {totalAmount.toFixed(2)}
+            </div>
+          </div>
+        </div>
 
         <label style={{ display: 'grid', gap: '4px' }}>
           <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Observações</span>
