@@ -838,8 +838,9 @@ function EditModal({ product, onClose, onRefresh }) {
                               updateEditField('spool_id', id);
                               if (id) {
                                 const spool = spools.find(s => s.id === parseInt(id));
-                                if (spool?.price && spool?.initial_weight) {
-                                  updateEditField('filament_price_per_kg', (spool.price / spool.initial_weight * 1000).toFixed(2));
+                                const spoolPrice = spool?.price ?? spool?.filament?.price;
+                                if (spoolPrice && spool?.initial_weight) {
+                                  updateEditField('filament_price_per_kg', (spoolPrice / spool.initial_weight * 1000).toFixed(2));
                                 }
                               }
                             }}
@@ -1003,8 +1004,9 @@ function EditModal({ product, onClose, onRefresh }) {
                     setNewVariantSpoolId(id);
                     if (id) {
                       const spool = spools.find(s => s.id === parseInt(id));
-                      if (spool?.price && spool?.initial_weight) {
-                        setNewVariantPrice((spool.price / spool.initial_weight * 1000).toFixed(2));
+                      const spoolPrice = spool?.price ?? spool?.filament?.price;
+                      if (spoolPrice && spool?.initial_weight) {
+                        setNewVariantPrice((spoolPrice / spool.initial_weight * 1000).toFixed(2));
                       }
                     }
                   }} style={{
