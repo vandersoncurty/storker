@@ -99,15 +99,6 @@ export default function Orders() {
     setShowForm(true);
   };
 
-  const handleStatus = async (order, status) => {
-    try {
-      await api.patch(`${API_URL}/orders/${order.id}/status`, null, { params: { status } });
-      loadOrders();
-    } catch {
-      setError('Erro ao atualizar status');
-    }
-  };
-
   const handleDelete = async (id) => {
     if (!window.confirm('Remover este pedido?')) return;
     try {
@@ -126,11 +117,6 @@ export default function Orders() {
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao enviar para impressora');
     }
-  };
-
-  const nextStatus = (current) => {
-    const idx = statusList.indexOf(current);
-    return idx < statusList.length - 1 ? statusList[idx + 1] : null;
   };
 
   if (loading) return <p>Carregando...</p>;
@@ -293,14 +279,6 @@ export default function Orders() {
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                      {nextStatus(orderStatus(order)) && (
-                        <button onClick={() => handleStatus(order, nextStatus(orderStatus(order)))} title={`Mover para ${statusLabels[nextStatus(orderStatus(order))]}`} style={{
-                          padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--accent)',
-                          background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
-                        }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14m-7-7l7 7-7 7"/></svg>
-                        </button>
-                      )}
                       {order.product && (
                         <button onClick={() => handleSendToPrinter(order)} title="Enviar GCode para impressora" style={{
                           padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--success)',
