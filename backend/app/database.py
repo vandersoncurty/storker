@@ -3,7 +3,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-from .config import DATABASE_URL
+from .config import DATABASE_URL, DATA_DIR
 
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 
@@ -72,6 +72,52 @@ def check_and_migrate():
                         conn.commit()
                 else:
                     _dialect_safe_add_column(engine, table_name, column)
+
+    _migrate_absolute_to_relative_paths()
+
+
+def _migrate_absolute_to_relative_paths():
+    """Converte paths absolutos existentes no banco para relativos a DATA_DIR."""
+    from sqlalchemy import MetaData, Table
+
+    meta = MetaData()
+    meta.reflect(bind=engine)
+    path_columns = [
+        ("stl_files", "file_path"),
+        ("products", "local_path"),
+        ("product_images", "file_path"),
+        ("thingiverse_sync", "local_path"),
+        ("stl_projects", "path"),
+    ]
+    for table_name, column_name in path_columns:
+        if table_name not in meta.tables:
+            continue
+        tbl = meta.tables[table_name]
+        if column_name not in tbl.c:
+            continue
+        col = tbl.c[column_name]
+        stmt = tbl.select().where(col.isnot(None))
+        with engine.connect() as conn:
+            rows = conn.execute(stmt).fetchall()
+        updated = 0
+        for row in rows:
+            raw = getattr(row, column_name)
+            if not raw or not isinstance(raw, str):
+                continue
+            p = Path(raw)
+            if p.is_absolute():
+                try:
+                    relative = str(p.relative_to(DATA_DIR))
+                except ValueError:
+                    continue
+                with engine.connect() as conn:
+                    conn.execute(
+                        tbl.update().where(tbl.c.id == row.id).values({column_name: relative})
+                    )
+                    conn.commit()
+                    updated += 1
+        if updated:
+            print(f"  Migrated {updated} rows in {table_name}.{column_name}")
 
 
 def get_db():

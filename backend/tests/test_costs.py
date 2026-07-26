@@ -42,3 +42,46 @@ def test_parse_gcode(client, auth_headers):
     data = resp.json()["parsed"]
     assert data["filament_grams"] == 42.5
     assert data["print_time_seconds"] == 9015
+
+
+def test_parse_gcode_time_elapsed(client, auth_headers):
+    gcode = (
+        ";TIME_ELAPSED:15\n"
+        "G1 X10\n"
+        ";TIME_ELAPSED:30\n"
+        "G1 X20\n"
+        ";TIME_ELAPSED:45\n"
+        "G1 X30\n"
+        ";TIME_ELAPSED:600\n"
+    )
+    resp = client.post("/costs/parse-gcode", files={"file": ("test.gcode", gcode)}, headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()["parsed"]
+    assert data["print_time_seconds"] == 600
+
+
+def test_parse_gcode_cura_format(client, auth_headers):
+    gcode = "; filament used = 12.5g\n;Print Time: 00h 10m 00s\n"
+    resp = client.post("/costs/parse-gcode", files={"file": ("test.gcode", gcode)}, headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()["parsed"]
+    assert data["filament_grams"] == 12.5
+    assert data["print_time_seconds"] == 600
+
+
+def test_parse_gcode_orcaslicer_format(client, auth_headers):
+    gcode = "; filament used [g] = 5.0\n;Total print time: 30m\n"
+    resp = client.post("/costs/parse-gcode", files={"file": ("test.gcode", gcode)}, headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()["parsed"]
+    assert data["filament_grams"] == 5.0
+    assert data["print_time_seconds"] == 1800
+
+
+def test_parse_gcode_seconds_format(client, auth_headers):
+    gcode = "; filament used [g] = 8.2\n; total printing time = 3600s\n"
+    resp = client.post("/costs/parse-gcode", files={"file": ("test.gcode", gcode)}, headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()["parsed"]
+    assert data["filament_grams"] == 8.2
+    assert data["print_time_seconds"] == 3600

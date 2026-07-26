@@ -12,6 +12,7 @@ export default function FileExplorer() {
   const [filterSliced, setFilterSliced] = useState('all');
   const [contextMenu, setContextMenu] = useState(null);
   const [linkingGcode, setLinkingGcode] = useState(null);
+  const [replacingGcode, setReplacingGcode] = useState(null);
   const [viewingStl, setViewingStl] = useState(null);
   const [uploadFiles, setUploadFiles] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -34,6 +35,7 @@ export default function FileExplorer() {
 
   const loadProjects = async () => {
     try {
+      setLoading(true);
       setError(null);
       const res = await api.get(`${API_URL}/stl/projects`);
       setProjects(res.data);
@@ -78,7 +80,7 @@ export default function FileExplorer() {
       const url = URL.createObjectURL(resp.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = resp.headers['content-disposition']?.match(/filename="?(.+?)"?$/)?.[1] || `${project.name}.zip`;
+      a.download = resp.headers['content-disposition']?.match(/filename="?(.+?)"?$/)?.[1] || `${project.name}.stl`;
       a.click();
       URL.revokeObjectURL(url);
       showMessage('Download iniciado!');
@@ -95,7 +97,7 @@ export default function FileExplorer() {
       const url = URL.createObjectURL(resp.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = resp.headers['content-disposition']?.match(/filename="?(.+?)"?$/)?.[1] || `${project.name}_gcode.zip`;
+      a.download = resp.headers['content-disposition']?.match(/filename="?(.+?)"?$/)?.[1] || `${project.name}.gcode`;
       a.click();
       URL.revokeObjectURL(url);
       showMessage('GCode baixado!');
@@ -119,6 +121,37 @@ export default function FileExplorer() {
       showMessage('Erro ao vincular GCode', 'error');
     }
     setLinkingGcode(null);
+    setContextMenu(null);
+  };
+
+  const handleUnlinkGcode = async (project) => {
+    const gcode = project.files.find(f => f.file_type === 'gcode');
+    if (!gcode) return;
+    if (!confirm(`Remover GCode "${gcode.filename}" do projeto "${project.title || project.name}"?`)) return;
+    try {
+      await api.delete(`${API_URL}/stl/projects/${project.id}/files/${gcode.id}`);
+      showMessage('GCode desvinculado!');
+      loadProjects();
+    } catch {
+      showMessage('Erro ao desvincular GCode', 'error');
+    }
+    setContextMenu(null);
+  };
+
+  const handleReplaceGcode = async (e, project) => {
+    if (e) e.stopPropagation();
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await api.put(`${API_URL}/stl/projects/${project.id}/gcode`, formData);
+      showMessage('GCode substituído!');
+      loadProjects();
+    } catch {
+      showMessage('Erro ao substituir GCode', 'error');
+    }
+    setReplacingGcode(null);
     setContextMenu(null);
   };
 
@@ -334,6 +367,18 @@ export default function FileExplorer() {
             <MenuItem label="Enviar para fila" icon="M5 12h14m-7-7l7 7-7 7"
               onClick={() => handleSendToQueue(contextMenu.project)} />
           )}
+          {contextMenu.project.files.some(f => f.file_type === 'gcode') && (
+            <MenuItem label="Substituir GCode" icon="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              onClick={() => {
+                setReplacingGcode(contextMenu.project.id);
+                setTimeout(() => document.getElementById(`replace-gcode-${contextMenu.project.id}`)?.click(), 0);
+              }}
+            />
+          )}
+          {contextMenu.project.files.some(f => f.file_type === 'gcode') && (
+            <MenuItem label="Desvincular GCode" icon="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              onClick={() => handleUnlinkGcode(contextMenu.project)} />
+          )}
           <MenuItem label="Excluir projeto" icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
             onClick={() => handleDeleteProject(null, contextMenu.project)} />
         </div>
@@ -343,7 +388,21 @@ export default function FileExplorer() {
         <input type="file" accept=".gcode"
           id={`gcode-${linkingGcode}`}
           style={{ display: 'none' }}
-          onChange={e => handleLinkGcode(e, contextMenu?.project)}
+          onChange={e => {
+            const proj = projects.find(p => p.id === linkingGcode);
+            if (proj) handleLinkGcode(e, proj);
+          }}
+        />
+      )}
+
+      {replacingGcode && (
+        <input type="file" accept=".gcode"
+          id={`replace-gcode-${replacingGcode}`}
+          style={{ display: 'none' }}
+          onChange={e => {
+            const proj = projects.find(p => p.id === replacingGcode);
+            if (proj) handleReplaceGcode(e, proj);
+          }}
         />
       )}
 
