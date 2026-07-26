@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import api from '../api';
 
 export default function STLViewer({ url, onClose }) {
   const containerRef = useRef(null);
@@ -59,8 +60,9 @@ export default function STLViewer({ url, onClose }) {
 
       const loader = new STLLoader();
       try {
-        const geometry = await loader.loadAsync(url);
+        const resp = await api.get(url, { responseType: 'arraybuffer' });
         if (!mounted) return;
+        const geometry = loader.parse(resp.data);
 
         geometry.center();
 
