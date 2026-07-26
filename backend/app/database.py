@@ -76,6 +76,7 @@ def check_and_migrate():
     _migrate_absolute_to_relative_paths()
     _migrate_order_status_fk()
     _migrate_finance_fk()
+    _migrate_drop_old_not_null()
     _seed_all()
 
 
@@ -165,6 +166,29 @@ SEED_DATA = {
         {"code": "FAILED", "label": "Falha", "color": "#ef4444"},
     ],
 }
+
+
+def _drop_not_null(table: str, column: str):
+    """Remove NOT NULL de uma coluna (PostgreSQL). SQLite ignora (dev only)."""
+    if _is_sqlite:
+        return
+    from sqlalchemy import inspect as sa_inspect
+    inspector = sa_inspect(engine)
+    if table not in set(inspector.get_table_names()):
+        return
+    cols = inspector.get_columns(table)
+    col_info = next((c for c in cols if c["name"] == column), None)
+    if col_info is None or col_info.get("nullable", True):
+        return
+    with engine.connect() as conn:
+        conn.execute(text(f'ALTER TABLE {table} ALTER COLUMN "{column}" DROP NOT NULL'))
+        conn.commit()
+
+
+def _migrate_drop_old_not_null():
+    _drop_not_null("finance_entries", "type")
+    _drop_not_null("finance_entries", "category")
+    _drop_not_null("orders", "status")
 
 
 def _seed_all(db=None):
