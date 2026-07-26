@@ -1,0 +1,52 @@
+Para calcular o preço de venda ideal na Shopee de forma automática e garantida no seu backend, você precisa usar uma fórmula de margem sobre a receita (e não apenas sobre o custo), considerando todas as taxas percentuais e fixas da plataforma.A fórmula abaixo garante que, após a Shopee descontar as taxas dela e o imposto, sobre exatamente a porcentagem de lucro líquido que você definiu.1. A Fórmula do Preço de Venda ($PV$)$$\text{Preço de Venda} = \frac{\text{Custo de Produção} + \text{Taxa Fixa por Item}}{\Big(1 - \frac{\text{Comissão \%} + \text{Imposto \%} + \text{Margem de Lucro \%}}{100}\Big)}$$2. Parâmetros Atualizados da ShopeeA estrutura de taxas padrão da Shopee opera da seguinte forma:Comissão Base (Sem Frete Grátis): 14%Comissão com Programa de Frete Grátis (Recomendado): 20% (14% base + 6% do programa)A Shopee impõe um teto de comissão em R$ 100,00 por item.Taxa Fixa por Item Vendido:R$ 4,00 por item para produtos abaixo de R$ 10,00 (ou em kits/ofertas baixas)R$ 3,00 por item para produtos acima de R$ 10,00 (valor médio aplicado na plataforma)Imposto / MEI:Se for MEI (DAS), o valor é fixo mensal (~R$ 75 a R$ 80), então você pode colocar $0\%$ nessa variável de imposto da fórmula.Se for Simples Nacional, a alíquota inicial no anexo de comércio costuma ser de $4\%$.3. Função em Python para seu Backend (FastAPI)Aqui está a implementação do cálculo para incluir nos seus services ou na regra de negócio do seu projeto:Pythondef calculate_shopee_price(
+    production_cost: float,       # Filamento + Energia + Embalagem + Depreciação
+    desired_profit_margin: float, # Margem desejada em % (ex: 30 para 30%)
+    shopee_commission_pct: float = 20.0, # 20% (Frete Grátis Extra)
+    fixed_fee: float = 3.0,       # R$ 3,00 taxa fixa da Shopee
+    tax_pct: float = 0.0          # Imposto em % (0% para MEI)
+) -> dict:
+    
+    # Soma dos percentuais de desconto sobre a venda
+    total_pct_deductions = (shopee_commission_pct + tax_pct + desired_profit_margin) / 100.0
+    
+    if total_pct_deductions >= 1.0:
+        raise ValueError("A soma das margens e taxas não pode ser maior ou igual a 100%")
+    
+    # Cálculo inicial do preço de venda
+    sale_price = (production_cost + fixed_fee) / (1 - total_pct_deductions)
+    
+    # Trava do Teto de Comissão da Shopee (Máximo de R$ 100 em comissão)
+    shopee_fee_calculated = sale_price * (shopee_commission_pct / 100.0)
+    if shopee_fee_calculated > 100.0:
+        # Se ultrapassar o teto, a comissão fixa vira R$ 100
+        sale_price = (production_cost + fixed_fee + 100.0) / (1 - ((tax_pct + desired_profit_margin) / 100.0))
+        shopee_fee = 100.0 + fixed_fee
+    else:
+        shopee_fee = shopee_fee_calculated + fixed_fee
+
+    taxes = sale_price * (tax_pct / 100.0)
+    net_profit = sale_price - production_cost - shopee_fee - taxes
+
+    return {
+        "sale_price": round(sale_price, 2),
+        "shopee_fee": round(shopee_fee, 2),
+        "taxes": round(taxes, 2),
+        "net_profit": round(net_profit, 2),
+        "actual_margin_pct": round((net_profit / sale_price) * 100, 2)
+    }
+
+# --- EXEMPLO DE USO ---
+# Custo de Produção (Filamento + Custo Fixo de Impressão + Caixa): R$ 12,00
+# Margem de Lucro Desejada: 35%
+# Imposto (MEI): 0%
+resultado = calculate_shopee_price(production_cost=12.00, desired_profit_margin=35.0)
+print(resultado)
+# Resultado esperado:
+# {
+#   'sale_price': 33.33,
+#   'shopee_fee': 9.67,  (R$ 6,67 de 20% + R$ 3,00 fixo)
+#   'taxes': 0.0,
+#   'net_profit': 11.67, (Exatamente 35% de R$ 33.33)
+#   'actual_margin_pct': 35.0
+# }
+💡 Dicas Importantes para o seu Sistema de CustosInclua Embalagem no Custo de Produção: Não coloque apenas o filamento e a energia elétrica no custo de produção. Adicione também R$ 1,50 a R$ 2,50 por pedido para cobrir caixa de papelão, plástico bolha e fita adesiva.Kits e Combos: Para produtos onde a impressão custa muito pouco (ex: R$ 2,00 em filamento), a taxa fixa da Shopee (R$ 3,00) "morde" grande parte da receita. Crie no seu backend a lógica de Kit (ex: 3x unidades). O custo de produção dobra/triplica, mas a taxa fixa de R$ 3,00 é cobrada uma única vez por pedido, aumentando a sua margem real.

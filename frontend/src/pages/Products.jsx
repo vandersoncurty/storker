@@ -406,8 +406,9 @@ function EditModal({ product, onClose, onRefresh }) {
         printer_watts: costForm.printer_watts,
         profit_margin_percent: costForm.markup_percentage,
       };
-      await api.post(`${API_URL}/costs/apply/${product.id}`, payload);
+      const res = await api.post(`${API_URL}/costs/apply/${product.id}`, payload);
       showMessage('Custo aplicado ao produto!');
+      setForm(f => ({ ...f, sale_price: res.data.sale_price, production_cost: res.data.production_cost }));
       setShowCostCalc(false);
       onRefresh();
     } catch {
@@ -447,8 +448,9 @@ function EditModal({ product, onClose, onRefresh }) {
         shopee_commission_cap: costForm.shopee_commission_cap,
         shopee_tax_pct: costForm.shopee_tax_pct,
       };
-      await api.post(`${API_URL}/costs/shopee-apply/${product.id}`, payload);
+      const res = await api.post(`${API_URL}/costs/shopee-apply/${product.id}`, payload);
       showMessage('Preço Shopee aplicado ao produto!');
+      setForm(f => ({ ...f, sale_price: res.data.sale_price, production_cost: res.data.production_cost }));
       setShowCostCalc(false);
       onRefresh();
     } catch {
