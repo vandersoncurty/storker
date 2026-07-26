@@ -542,15 +542,8 @@ function EditProjectModal({ project, onClose, onSave }) {
   const [title, setTitle] = useState(project.title || project.name);
   const [description, setDescription] = useState(project.description || '');
   const [viewingStl, setViewingStl] = useState(null);
-  const [linkingStlId, setLinkingStlId] = useState(null);
   const gcodeInputRef = useRef(null);
-
-  useEffect(() => {
-    if (linkingStlId && gcodeInputRef.current) {
-      gcodeInputRef.current.value = '';
-      gcodeInputRef.current.click();
-    }
-  }, [linkingStlId]);
+  const linkingStlRef = useRef(null);
 
   const stlFiles = project.files.filter(f => f.file_type === 'stl');
 
@@ -635,7 +628,12 @@ function EditProjectModal({ project, onClose, onSave }) {
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
                   </button>
                   {!gcode && (
-                    <button onClick={() => setLinkingStlId(f.id)} title="Vincular GCode" style={{
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      linkingStlRef.current = f.id;
+                      gcodeInputRef.current.value = '';
+                      gcodeInputRef.current.click();
+                    }} title="Vincular GCode" style={{
                       padding: '2px 8px', borderRadius: '3px', border: '1px solid var(--accent)',
                       background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
                     }}>
@@ -664,9 +662,9 @@ function EditProjectModal({ project, onClose, onSave }) {
 
       <input type="file" accept=".gcode" ref={gcodeInputRef} style={{ display: 'none' }}
         onChange={e => {
-          const id = linkingStlId;
-          setLinkingStlId(null);
-          if (id) handleLinkGcodeStl(e, id);
+          const stlId = linkingStlRef.current;
+          linkingStlRef.current = null;
+          if (stlId) handleLinkGcodeStl(e, stlId);
         }}
       />
 
