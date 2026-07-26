@@ -27,35 +27,30 @@ def _resolve_status_id(db: Session, status_id: int = None, status_code: str = No
     return None
 
 
-def _code_from_status_id(db: Session, status_id: int):
-    s = db.query(models.OrderStatus).filter(models.OrderStatus.id == status_id).first()
-    return s.code if s else None
-
-
 def _record_sale_finance(order: models.Order, db: Session):
-    if order.amount and order.amount > 0:
-        income_id = None
-        sale_cat_id = None
-        ft = db.query(models.FinanceType).filter(models.FinanceType.code == "income").first()
-        if ft: income_id = ft.id
-        fc = db.query(models.FinanceCategory).filter(models.FinanceCategory.code == "sale").first()
-        if fc: sale_cat_id = fc.id
+    if not order.amount or order.amount <= 0:
+        return
+    income_id = None
+    sale_cat_id = None
+    ft = db.query(models.FinanceType).filter(models.FinanceType.code == "income").first()
+    if ft: income_id = ft.id
+    fc = db.query(models.FinanceCategory).filter(models.FinanceCategory.code == "sale").first()
+    if fc: sale_cat_id = fc.id
 
-        existing = db.query(models.FinanceEntry).filter(
-            models.FinanceEntry.reference_type == "order",
-            models.FinanceEntry.reference_id == order.id,
-        ).first()
-        if not existing:
-            entry = models.FinanceEntry(
-                type_id=income_id,
-                description=f"Venda #{order.id}",
-                amount=order.amount,
-                category_id=sale_cat_id,
-                reference_type="order",
-                reference_id=order.id,
-            )
-            db.add(entry)
-            db.commit()
+    existing = db.query(models.FinanceEntry).filter(
+        models.FinanceEntry.reference_type == "order",
+        models.FinanceEntry.reference_id == order.id,
+    ).first()
+    if not existing:
+        entry = models.FinanceEntry(
+            type_id=income_id,
+            description=f"Venda #{order.id}",
+            amount=order.amount,
+            category_id=sale_cat_id,
+            reference_type="order",
+            reference_id=order.id,
+        )
+        db.add(entry)
 
 
 def _load_order(order_id: int, db: Session):
@@ -158,7 +153,6 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    order_ref_id = _resolve_status_id(db, status_code="order")
     db.query(models.FinanceEntry).filter(
         models.FinanceEntry.reference_type == "order",
         models.FinanceEntry.reference_id == order_id,
