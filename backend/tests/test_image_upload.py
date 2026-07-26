@@ -37,14 +37,13 @@ def test_upload_multiple_images(client):
 
 
 def test_upload_image_optimization_resize(client):
+    from app.config import DATA_DIR
     client.post("/products/", json={"title": "Produto Teste", "description": "Test"})
     large_img = _make_test_image(width=3000, height=2000)
     resp = client.post("/products/1/images/upload", files={"file": ("large.jpg", large_img, "image/jpeg")})
     assert resp.status_code == 200
 
-    import os
-    path = resp.json()["file_path"]
-    saved = Image.open(path)
+    saved = Image.open(DATA_DIR / resp.json()["file_path"])
     assert saved.width <= 1920
     assert saved.height <= 1920
 

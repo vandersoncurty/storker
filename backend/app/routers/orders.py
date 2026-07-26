@@ -3,7 +3,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, subqueryload
 
 from ..database import get_db
 from .. import models, schemas
@@ -32,8 +32,10 @@ def _record_sale_finance(order: models.Order, db: Session):
 
 def _load_order(order_id: int, db: Session):
     return db.query(models.Order).options(
-        joinedload(models.Order.items).joinedload(models.OrderItem.product),
-        joinedload(models.Order.product),
+        joinedload(models.Order.items).joinedload(models.OrderItem.product).subqueryload(models.Product.images),
+        joinedload(models.Order.items).joinedload(models.OrderItem.product).subqueryload(models.Product.variants),
+        joinedload(models.Order.product).subqueryload(models.Product.images),
+        joinedload(models.Order.product).subqueryload(models.Product.variants),
     ).filter(models.Order.id == order_id).first()
 
 
@@ -57,8 +59,10 @@ def list_orders(
 ):
     """Lista pedidos com filtros opcionais."""
     q = db.query(models.Order).options(
-        joinedload(models.Order.items).joinedload(models.OrderItem.product),
-        joinedload(models.Order.product),
+        joinedload(models.Order.items).joinedload(models.OrderItem.product).subqueryload(models.Product.images),
+        joinedload(models.Order.items).joinedload(models.OrderItem.product).subqueryload(models.Product.variants),
+        joinedload(models.Order.product).subqueryload(models.Product.images),
+        joinedload(models.Order.product).subqueryload(models.Product.variants),
     )
     if status:
         q = q.filter(models.Order.status == status)
@@ -108,10 +112,14 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
 
 @router.delete("/{order_id}")
 def delete_order(order_id: int, db: Session = Depends(get_db)):
-    """Remove um pedido."""
+    """Remove um pedido e suas entradas financeiras."""
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    db.query(models.FinanceEntry).filter(
+        models.FinanceEntry.reference_type == "order",
+        models.FinanceEntry.reference_id == order_id,
+    ).delete()
     db.delete(order)
     db.commit()
     return {"detail": "Pedido removido"}

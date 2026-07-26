@@ -1,6 +1,6 @@
 """Router de finanças — controle de caixa, entradas e saídas."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models, schemas
+
+
+def _parse_date(d: str) -> datetime:
+    return datetime.strptime(d, "%Y-%m-%d")
 
 router = APIRouter(prefix="/finance", tags=["finance"])
 
@@ -43,12 +47,12 @@ def list_entries(
     if category:
         q = q.filter(models.FinanceEntry.category == category)
     if days:
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         q = q.filter(models.FinanceEntry.created_at >= cutoff)
     if start_date:
-        q = q.filter(models.FinanceEntry.created_at >= start_date)
+        q = q.filter(models.FinanceEntry.created_at >= _parse_date(start_date))
     if end_date:
-        q = q.filter(models.FinanceEntry.created_at <= end_date + " 23:59:59")
+        q = q.filter(models.FinanceEntry.created_at <= _parse_date(end_date).replace(hour=23, minute=59, second=59))
     return q.order_by(models.FinanceEntry.created_at.desc()).offset(skip).limit(limit).all()
 
 
@@ -91,12 +95,12 @@ def get_balance(
 ):
     q = db.query(models.FinanceEntry)
     if days:
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         q = q.filter(models.FinanceEntry.created_at >= cutoff)
     if start_date:
-        q = q.filter(models.FinanceEntry.created_at >= start_date)
+        q = q.filter(models.FinanceEntry.created_at >= _parse_date(start_date))
     if end_date:
-        q = q.filter(models.FinanceEntry.created_at <= end_date + " 23:59:59")
+        q = q.filter(models.FinanceEntry.created_at <= _parse_date(end_date).replace(hour=23, minute=59, second=59))
     entries = q.all()
     total_income = sum(e.amount for e in entries if e.type == "income")
     total_expense = sum(e.amount for e in entries if e.type == "expense")

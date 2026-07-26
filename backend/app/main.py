@@ -73,6 +73,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 PRODUCT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)

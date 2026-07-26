@@ -1,6 +1,6 @@
 """Router de autenticação — login JWT + CRUD de usuários."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 
 from fastapi import APIRouter, HTTPException, Header
@@ -67,7 +67,7 @@ async def login(username: str, password: str):
     user_data = users.get(username)
     if not user_data or user_data.get("password_hash") != _hash_password(password):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     token = jwt.encode({"sub": username, "exp": expire}, _get_secret(), algorithm=ALGORITHM)
     return {"access_token": token, "token_type": "bearer", "username": username, "role": user_data.get("role", "user")}
 

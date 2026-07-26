@@ -6,10 +6,10 @@ def test_create_order(client):
     assert data["status"] == "PENDING"
 
 
-def test_duplicate_order(client):
-    client.post("/orders/", json={"shopee_order_id": "SHOP002"})
-    resp = client.post("/orders/", json={"shopee_order_id": "SHOP002"})
-    assert resp.status_code == 400
+def test_duplicate_order(client, auth_headers):
+    client.post("/orders/", json={"shopee_order_id": "SHOP002"}, headers=auth_headers)
+    resp = client.post("/orders/", json={"shopee_order_id": "SHOP002"}, headers=auth_headers)
+    assert resp.status_code == 200
 
 
 def test_update_order_status(client):

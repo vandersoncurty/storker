@@ -30,8 +30,8 @@ export default function Orders() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
-    product_id: '', amount: '', buyer_name: '', buyer_contact: '',
-    shipping_address: '', notes: '', status: 'PENDING',
+    product_id: '', quantity: '1', amount: '', buyer_name: '', buyer_contact: '',
+    shipping_address: '', notes: '', order_number: '', status: 'PENDING',
   });
 
   const loadOrders = useCallback(async () => {
@@ -62,7 +62,8 @@ export default function Orders() {
   const handleSave = async () => {
     const payload = { ...form };
     payload.product_id = payload.product_id ? parseInt(payload.product_id) : null;
-    payload.amount = payload.amount ? parseFloat(payload.amount) : null;
+    payload.quantity = payload.quantity ? parseInt(payload.quantity) : 1;
+    payload.amount = payload.amount !== '' && payload.amount != null ? parseFloat(payload.amount) : null;
     try {
       setError(null);
       if (editing) {
@@ -72,7 +73,7 @@ export default function Orders() {
       }
       setShowForm(false);
       setEditing(null);
-      setForm({ product_id: '', amount: '', buyer_name: '', buyer_contact: '', shipping_address: '', notes: '', status: 'PENDING' });
+      setForm({ product_id: '', quantity: '1', amount: '', buyer_name: '', buyer_contact: '', shipping_address: '', notes: '', order_number: '', status: 'PENDING' });
       loadOrders();
     } catch {
       setError('Erro ao salvar pedido');
@@ -82,11 +83,13 @@ export default function Orders() {
   const handleEdit = (order) => {
     setForm({
       product_id: order.product_id ?? '',
+      quantity: order.quantity ?? '1',
       amount: order.amount ?? '',
       buyer_name: order.buyer_name ?? '',
       buyer_contact: order.buyer_contact ?? '',
       shipping_address: order.shipping_address ?? '',
       notes: order.notes ?? '',
+      order_number: order.order_number ?? '',
       status: order.status,
     });
     setEditing(order.id);
@@ -123,7 +126,7 @@ export default function Orders() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ margin: 0 }}>Pedidos</h1>
-        <button onClick={() => { setShowForm(true); setEditing(null); setForm({ product_id: '', amount: '', buyer_name: '', buyer_contact: '', shipping_address: '', notes: '', status: 'PENDING' }); }} style={{
+        <button onClick={() => { setShowForm(true); setEditing(null); setForm({ product_id: '', quantity: '1', amount: '', buyer_name: '', buyer_contact: '', shipping_address: '', notes: '', order_number: '', status: 'PENDING' }); }} style={{
           padding: '10px 20px', borderRadius: 'var(--radius-sm)', border: 'none',
           background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: '600', fontSize: '14px',
         }}>
@@ -172,6 +175,14 @@ export default function Orders() {
             </select>
             <input type="number" step="0.01" min="0" placeholder="Valor (R$)" value={form.amount}
               onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+              style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px' }}
+            />
+            <input placeholder="Nº do pedido" value={form.order_number}
+              onChange={e => setForm(f => ({ ...f, order_number: e.target.value }))}
+              style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px' }}
+            />
+            <input type="number" min="1" placeholder="Quantidade" value={form.quantity}
+              onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
               style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '14px' }}
             />
             <input placeholder="Nome do comprador" value={form.buyer_name}
@@ -225,8 +236,10 @@ export default function Orders() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text)' }}>
                 <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: '600' }}>#</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: '600' }}>Pedido</th>
                 <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: '600' }}>Produto</th>
                 <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: '600' }}>Comprador</th>
+                <th style={{ textAlign: 'center', padding: '10px 14px', fontWeight: '600' }}>Qtd</th>
                 <th style={{ textAlign: 'center', padding: '10px 14px', fontWeight: '600' }}>Status</th>
                 <th style={{ textAlign: 'right', padding: '10px 14px', fontWeight: '600' }}>Valor</th>
                 <th style={{ textAlign: 'right', padding: '10px 14px', fontWeight: '600' }}>Data</th>
@@ -238,11 +251,17 @@ export default function Orders() {
                 <tr key={order.id} style={{ borderBottom: '1px solid var(--border)', fontSize: '14px' }}>
                   <td style={{ padding: '10px 14px', color: 'var(--text)' }}>#{order.id}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text-h)', fontWeight: '500' }}>
+                    {order.order_number || '—'}
+                  </td>
+                  <td style={{ padding: '10px 14px', color: 'var(--text-h)', fontWeight: '500' }}>
                     {order.product ? (order.product.title || `Produto #${order.product.id}`) : '—'}
                   </td>
                   <td style={{ padding: '10px 14px' }}>
                     <div style={{ fontWeight: '500', color: 'var(--text-h)' }}>{order.buyer_name || '—'}</div>
                     {order.buyer_contact && <div style={{ fontSize: '12px', color: 'var(--text)' }}>{order.buyer_contact}</div>}
+                  </td>
+                  <td style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--text)' }}>
+                    {order.quantity || 1}
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                     <span style={{

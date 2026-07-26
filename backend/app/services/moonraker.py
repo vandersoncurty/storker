@@ -76,8 +76,7 @@ async def upload_file_to_moonraker(filename: str, filepath: str) -> dict:
 async def delete_job_from_queue(job_id: str) -> dict:
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         response = await client.delete(
-            f"{_get_url()}/server/job_queue/job",
-            json={"job_id": job_id},
+            f"{_get_url()}/server/job_queue/job?job_id={job_id}",
         )
         response.raise_for_status()
         return response.json()

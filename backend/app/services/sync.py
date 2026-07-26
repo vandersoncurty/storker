@@ -1,12 +1,13 @@
 """Serviço de sincronização Thingiverse - baixa STLs, imagens e cria Products."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from ..config import THINGIVERSE_MODELS_DIR, PRODUCT_IMAGES_DIR
 from ..models import Product, ProductImage, ThingiverseCollectionConfig, ThingiverseSync, StlProject, StlFile
+from ..paths import rel, abs_path
 from ..schemas import SyncResult
 from . import thingiverse
 from .settings_file import load_settings
@@ -31,7 +32,7 @@ def _files_exist(local_path: str) -> bool:
     """Verifica se os arquivos STL ainda existem no disco."""
     if not local_path:
         return False
-    path = Path(local_path)
+    path = abs_path(local_path)
     if not path.exists():
         return False
     stl_files = list(path.glob("*.stl"))
@@ -89,13 +90,13 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     skipped += 1
                     continue
                 safe_name = thing_name.replace(" ", "_").replace("/", "-")[:100]
-                thing_dir = Path(existing.local_path)
+                thing_dir = abs_path(existing.local_path)
                 if not thing_dir.exists():
                     skipped += 1
                     continue
                 stl_proj = StlProject(
                     name=safe_name,
-                    path=str(thing_dir),
+                    path=rel(thing_dir),
                     source="thingiverse",
                     info_pending=False,
                     title=thing_name,
@@ -108,7 +109,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     db.add(StlFile(
                         project_id=stl_proj.id,
                         filename=stl_path.name,
-                        file_path=str(stl_path),
+                        file_path=rel(stl_path),
                         file_type="stl",
                     ))
                 db.commit()
@@ -149,14 +150,14 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     product.title = thing_name
                     product.description = description
                     product.thing_url = thing_url
-                    product.local_path = str(thing_dir)
+                    product.local_path = rel(thing_dir)
                 else:
                     product = Product(
                         title=thing_name,
                         description=description,
                         thing_id=thing_id,
                         thing_url=thing_url,
-                        local_path=str(thing_dir),
+                        local_path=rel(thing_dir),
                     )
                     db.add(product)
                 db.flush()
@@ -165,7 +166,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                 if not existing_stl_project:
                     stl_proj = StlProject(
                         name=safe_name,
-                        path=str(thing_dir),
+                        path=rel(thing_dir),
                         source="thingiverse",
                         info_pending=False,
                         title=thing_name,
@@ -180,7 +181,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                             db.add(StlFile(
                                 project_id=stl_proj.id,
                                 filename=stl["name"],
-                                file_path=str(stl_path),
+                                file_path=rel(stl_path),
                                 file_type="stl",
                             ))
 
@@ -219,7 +220,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
 
                         product_image = ProductImage(
                             product_id=product.id,
-                            file_path=str(img_path),
+                            file_path=rel(img_path),
                             original_url=img_url,
                             source="thingiverse",
                             is_primary=(not has_primary and idx == 0),
@@ -232,7 +233,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
                     thing_id=thing_id,
                     thing_name=thing_name,
                     thing_url=thing_url,
-                    local_path=str(thing_dir),
+                    local_path=rel(thing_dir),
                     status="DOWNLOADED",
                 )
                 db.add(sync_record)
@@ -257,7 +258,7 @@ async def sync_collection(collection_id: int, db: Session) -> SyncResult:
         ThingiverseCollectionConfig.collection_id == collection_id
     ).first()
     if config:
-        config.last_synced_at = datetime.utcnow()
+        config.last_synced_at = datetime.now(timezone.utc)
 
     db.commit()
 

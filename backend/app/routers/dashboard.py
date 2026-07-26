@@ -4,24 +4,26 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, text
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..database import get_db, engine as db_engine
+from ..database import get_db
 from .. import models
 from ..schemas import Settings
 from ..services.settings_file import load_settings
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-_is_pg = db_engine.url.get_backend_name() in ("postgresql",)
-
 _moonraker_cache = {"data": None, "ts": 0.0}
 _MR_CACHE_TTL = 10  # segundos
 
 
-def _month_format(column):
-    if _is_pg:
+def _is_pg(db: Session) -> bool:
+    return db.get_bind().url.get_backend_name() in ("postgresql",)
+
+
+def _month_format(db: Session, column):
+    if _is_pg(db):
         return func.to_char(column, "YYYY-MM")
     return func.strftime("%Y-%m", column)
 
@@ -169,21 +171,21 @@ async def get_dashboard(db: Session = Depends(get_db)):
 
 @router.get("/charts")
 async def get_charts(db: Session = Depends(get_db)):
-    month_col = _month_format(models.Product.created_at)
+    month_col = _month_format(db, models.Product.created_at)
     products_data = db.query(
         month_col.label('month'),
         func.count(models.Product.id).label('count'),
     ).group_by(month_col).order_by(month_col).all()
     products_by_month = [{"month": r.month, "count": r.count} for r in products_data]
 
-    month_col_ord = _month_format(models.Order.created_at)
+    month_col_ord = _month_format(db, models.Order.created_at)
     orders_data = db.query(
         month_col_ord.label('month'),
         func.count(models.Order.id).label('count'),
     ).group_by(month_col_ord).order_by(month_col_ord).all()
     orders_by_month = [{"month": r.month, "count": r.count} for r in orders_data]
 
-    month_col_proj = _month_format(models.StlProject.created_at)
+    month_col_proj = _month_format(db, models.StlProject.created_at)
     projects_data = db.query(
         month_col_proj.label('month'),
         func.count(models.StlProject.id).label('count'),
