@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from .. import models, schemas
 from ..models import ThingiverseCollectionConfig, ThingiverseSync
 from ..schemas import (
     ThingiverseCollectionCreate,
@@ -19,6 +20,12 @@ from ..services import sync
 router = APIRouter(prefix="/thingiverse", tags=["thingiverse"])
 
 SYNC_TIMEOUT = 300  # 5 minutos maximo para sync completo
+
+
+@router.get("/sync-statuses", response_model=List[schemas.SyncStatusResponse])
+def list_sync_statuses(db: Session = Depends(get_db)):
+    """Lista status de sincronização (DOWNLOADED, FAILED)."""
+    return db.query(models.SyncStatus).order_by(models.SyncStatus.code).all()
 
 
 @router.get("/collections", response_model=List[ThingiverseCollectionResponse])

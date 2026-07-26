@@ -112,6 +112,8 @@ class OrderBase(BaseModel):
     buyer_contact: Optional[str] = None
     shipping_address: Optional[str] = None
     notes: Optional[str] = None
+    status_id: Optional[int] = None
+    status: Optional[str] = None  # code (resolved if status_id given)
 
 
 class OrderCreate(OrderBase):
@@ -128,6 +130,7 @@ class OrderUpdate(BaseModel):
     buyer_contact: Optional[str] = None
     shipping_address: Optional[str] = None
     notes: Optional[str] = None
+    status_id: Optional[int] = None
     status: Optional[str] = None
 
 
@@ -156,17 +159,66 @@ class OrderResponse(OrderBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    status: str
+    status_id: Optional[int] = None
+    status: Optional[str] = None
+    status_ref: Optional[OrderStatusResponse] = None
     product: Optional[ProductResponse] = None
     items: list[OrderItemResponse] = []
     created_at: datetime
 
 
+class FinanceTypeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    label: str
+    color: str
+    sort_order: int
+
+
+class FinanceCategoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    label: str
+    color: str
+    sort_order: int
+
+
+class FileTypeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    label: str
+
+
+class SourceTypeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    label: str
+
+
+class SyncStatusResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    label: str
+    color: str
+
+
 class FinanceEntryCreate(BaseModel):
-    type: str  # "income" ou "expense"
+    type_id: Optional[int] = None
+    type: Optional[str] = None  # code (resolved if type_id given)
     description: str
     amount: float
-    category: str = "other"
+    category_id: Optional[int] = None
+    category: Optional[str] = None  # code
     reference_type: Optional[str] = None
     reference_id: Optional[int] = None
 
@@ -174,6 +226,7 @@ class FinanceEntryCreate(BaseModel):
 class FinanceEntryUpdate(BaseModel):
     description: Optional[str] = None
     amount: Optional[float] = None
+    category_id: Optional[int] = None
     category: Optional[str] = None
 
 
@@ -181,10 +234,14 @@ class FinanceEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    type: str
+    type_id: Optional[int] = None
+    type: Optional[str] = None
+    type_ref: Optional[FinanceTypeResponse] = None
     description: str
     amount: float
-    category: str
+    category_id: Optional[int] = None
+    category: Optional[str] = None
+    category_ref: Optional[FinanceCategoryResponse] = None
     reference_type: Optional[str] = None
     reference_id: Optional[int] = None
     created_at: datetime

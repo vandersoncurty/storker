@@ -4,7 +4,7 @@ from fastapi import Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.database import Base, get_db
+from app.database import Base, get_db, _seed_all
 from app.main import app
 from app.routers.auth import get_current_user
 
@@ -32,6 +32,9 @@ app.dependency_overrides[get_current_user] = override_get_current_user
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    _seed_all(db)
+    db.close()
     yield
     Base.metadata.drop_all(bind=engine)
 

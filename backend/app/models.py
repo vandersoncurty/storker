@@ -1,15 +1,9 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Enum
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
-import enum
 
 from .database import Base
-
-
-class FileType(str, enum.Enum):
-    STL = "stl"
-    GCODE = "gcode"
 
 
 class StlProject(Base):
@@ -125,7 +119,7 @@ class Order(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     variant_id = Column(Integer, ForeignKey("product_variants.id"), nullable=True)
     quantity = Column(Integer, default=1)
-    status = Column(String, default="PENDING")  # PENDING, PRINTING, DONE, SHIPPED, CANCELED, REFUNDED
+    status_id = Column(Integer, ForeignKey("order_statuses.id"), nullable=True)
     amount = Column(Float, nullable=True)
     buyer_name = Column(String, nullable=True)
     buyer_contact = Column(String, nullable=True)
@@ -134,20 +128,36 @@ class Order(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     product = relationship("Product")
+    status_ref = relationship("OrderStatus")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+    @property
+    def status(self):
+        return self.status_ref.code if self.status_ref else None
 
 
 class FinanceEntry(Base):
     __tablename__ = "finance_entries"
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String, nullable=False)  # "income" ou "expense"
+    type_id = Column(Integer, ForeignKey("finance_types.id"), nullable=True)
     description = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
-    category = Column(String, default="other")  # sale, material, shipping, fee, other
+    category_id = Column(Integer, ForeignKey("finance_categories.id"), nullable=True)
     reference_type = Column(String, nullable=True)  # "order" ou "manual"
     reference_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+    type_ref = relationship("FinanceType", foreign_keys=[type_id])
+    category_ref = relationship("FinanceCategory")
+
+    @property
+    def type(self):
+        return self.type_ref.code if self.type_ref else None
+
+    @property
+    def category(self):
+        return self.category_ref.code if self.category_ref else None
 
 
 class OrderStatus(Base):
@@ -158,6 +168,51 @@ class OrderStatus(Base):
     label = Column(String, nullable=False)
     color = Column(String, nullable=False)
     sort_order = Column(Integer, default=0)
+
+
+class FinanceType(Base):
+    __tablename__ = "finance_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, nullable=False, index=True)
+    label = Column(String, nullable=False)
+    color = Column(String, nullable=False)
+    sort_order = Column(Integer, default=0)
+
+
+class FinanceCategory(Base):
+    __tablename__ = "finance_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, nullable=False, index=True)
+    label = Column(String, nullable=False)
+    color = Column(String, nullable=False)
+    sort_order = Column(Integer, default=0)
+
+
+class FileType(Base):
+    __tablename__ = "file_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, nullable=False, index=True)
+    label = Column(String, nullable=False)
+
+
+class SourceType(Base):
+    __tablename__ = "source_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, nullable=False, index=True)
+    label = Column(String, nullable=False)
+
+
+class SyncStatus(Base):
+    __tablename__ = "sync_statuses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, nullable=False, index=True)
+    label = Column(String, nullable=False)
+    color = Column(String, nullable=False)
 
 
 class ThingiverseCollectionConfig(Base):

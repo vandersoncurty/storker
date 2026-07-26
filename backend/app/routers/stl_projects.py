@@ -21,6 +21,18 @@ from .costs import parse_gcode_text, estimate_cost, CostEstimate
 router = APIRouter(prefix="/stl", tags=["stl"])
 
 
+@router.get("/file-types", response_model=List[schemas.FileTypeResponse])
+def list_file_types(db: Session = Depends(get_db)):
+    """Lista tipos de arquivo (stl, gcode)."""
+    return db.query(models.FileType).order_by(models.FileType.code).all()
+
+
+@router.get("/source-types", response_model=List[schemas.SourceTypeResponse])
+def list_source_types(db: Session = Depends(get_db)):
+    """Lista tipos de origem (upload, thingiverse)."""
+    return db.query(models.SourceType).order_by(models.SourceType.code).all()
+
+
 @router.get("/projects", response_model=List[schemas.StlProjectResponse])
 def list_projects(source: str = None, db: Session = Depends(get_db)):
     """Lista projetos STL. Filtro opcional: source=thingiverse|upload."""

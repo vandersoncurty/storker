@@ -13,22 +13,42 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 @router.get("/statuses", response_model=List[schemas.OrderStatusResponse])
 def list_order_statuses(db: Session = Depends(get_db)):
-    """Lista todos os status de pedido disponíveis."""
     return db.query(models.OrderStatus).order_by(models.OrderStatus.sort_order).all()
+
+
+def _resolve_status_id(db: Session, status_id: int = None, status_code: str = None):
+    if status_id is not None:
+        return status_id
+    if status_code:
+        s = db.query(models.OrderStatus).filter(models.OrderStatus.code == status_code).first()
+        return s.id if s else None
+    return None
+
+
+def _code_from_status_id(db: Session, status_id: int):
+    s = db.query(models.OrderStatus).filter(models.OrderStatus.id == status_id).first()
+    return s.code if s else None
 
 
 def _record_sale_finance(order: models.Order, db: Session):
     if order.amount and order.amount > 0:
+        income_id = None
+        sale_cat_id = None
+        ft = db.query(models.FinanceType).filter(models.FinanceType.code == "income").first()
+        if ft: income_id = ft.id
+        fc = db.query(models.FinanceCategory).filter(models.FinanceCategory.code == "sale").first()
+        if fc: sale_cat_id = fc.id
+
         existing = db.query(models.FinanceEntry).filter(
             models.FinanceEntry.reference_type == "order",
             models.FinanceEntry.reference_id == order.id,
         ).first()
         if not existing:
             entry = models.FinanceEntry(
-                type="income",
+                type_id=income_id,
                 description=f"Venda #{order.id}",
                 amount=order.amount,
-                category="sale",
+                category_id=sale_cat_id,
                 reference_type="order",
                 reference_id=order.id,
             )
@@ -42,13 +62,19 @@ def _load_order(order_id: int, db: Session):
         joinedload(models.Order.items).joinedload(models.OrderItem.product).subqueryload(models.Product.variants),
         joinedload(models.Order.product).subqueryload(models.Product.images),
         joinedload(models.Order.product).subqueryload(models.Product.variants),
+        joinedload(models.Order.status_ref),
     ).filter(models.Order.id == order_id).first()
 
 
 @router.post("/", response_model=schemas.OrderResponse)
 def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
-    """Cria um novo pedido manual."""
-    db_order = models.Order(**payload.model_dump())
+    data = payload.model_dump(exclude={"status", "status_id"})
+    data["status_id"] = _resolve_status_id(db, payload.status_id, payload.status)
+    if data["status_id"] is None:
+        pending = db.query(models.OrderStatus).filter(models.OrderStatus.code == "PENDING").first()
+        if pending:
+            data["status_id"] = pending.id
+    db_order = models.Order(**data)
     db.add(db_order)
     db.commit()
     db.refresh(db_order)
@@ -59,19 +85,21 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
 def list_orders(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    status: str = Query(None, description="Filtrar por status"),
+    status: str = Query(None, description="Filtrar por status (code)"),
     search: str = Query(None, description="Busca por nome do comprador"),
     db: Session = Depends(get_db),
 ):
-    """Lista pedidos com filtros opcionais."""
     q = db.query(models.Order).options(
         joinedload(models.Order.items).joinedload(models.OrderItem.product).subqueryload(models.Product.images),
         joinedload(models.Order.items).joinedload(models.OrderItem.product).subqueryload(models.Product.variants),
         joinedload(models.Order.product).subqueryload(models.Product.images),
         joinedload(models.Order.product).subqueryload(models.Product.variants),
+        joinedload(models.Order.status_ref),
     )
     if status:
-        q = q.filter(models.Order.status == status)
+        sid = _resolve_status_id(db, status_code=status)
+        if sid:
+            q = q.filter(models.Order.status_id == sid)
     if search:
         q = q.filter(models.Order.buyer_name.ilike(f"%{search}%"))
     return q.order_by(models.Order.created_at.desc()).offset(skip).limit(limit).all()
@@ -79,7 +107,6 @@ def list_orders(
 
 @router.get("/{order_id}", response_model=schemas.OrderResponse)
 def get_order(order_id: int, db: Session = Depends(get_db)):
-    """Busca um pedido por ID."""
     order = _load_order(order_id, db)
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
@@ -88,13 +115,17 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{order_id}", response_model=schemas.OrderResponse)
 def update_order(order_id: int, payload: schemas.OrderUpdate, db: Session = Depends(get_db)):
-    """Atualiza dados de um pedido (incluindo status)."""
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "status" in data or "status_id" in data:
+        data.pop("status", None)
+        data["status_id"] = _resolve_status_id(db, payload.status_id, payload.status)
+    for field, value in data.items():
         setattr(order, field, value)
-    if order.status == "DONE":
+    done_id = _resolve_status_id(db, status_code="DONE")
+    if order.status_id == done_id:
         _record_sale_finance(order, db)
     db.commit()
     return _load_order(order_id, db)
@@ -102,16 +133,19 @@ def update_order(order_id: int, payload: schemas.OrderUpdate, db: Session = Depe
 
 @router.patch("/{order_id}/status", response_model=schemas.OrderResponse)
 def update_order_status(order_id: int, status: str, db: Session = Depends(get_db)):
-    """Atualiza apenas o status. Valores vindos da tabela order_statuses."""
-    db_codes = {r.code for r in db.query(models.OrderStatus.code).all()}
-    valid = db_codes if db_codes else {"PENDING", "PRINTING", "DONE", "SHIPPED", "CANCELED", "REFUNDED"}
+    valid = {r.code for r in db.query(models.OrderStatus.code).all()}
+    if not valid:
+        raise HTTPException(status_code=500, detail="Nenhum status cadastrado")
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Status inválido. Use: {valid}")
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    order.status = status
-    if status == "DONE":
+    sid = _resolve_status_id(db, status_code=status)
+    if sid:
+        order.status_id = sid
+    done_id = _resolve_status_id(db, status_code="DONE")
+    if order.status_id == done_id:
         _record_sale_finance(order, db)
     db.commit()
     return _load_order(order_id, db)
@@ -119,10 +153,10 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
 
 @router.delete("/{order_id}")
 def delete_order(order_id: int, db: Session = Depends(get_db)):
-    """Remove um pedido e suas entradas financeiras."""
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    order_ref_id = _resolve_status_id(db, status_code="order")
     db.query(models.FinanceEntry).filter(
         models.FinanceEntry.reference_type == "order",
         models.FinanceEntry.reference_id == order_id,

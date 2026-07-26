@@ -42,8 +42,10 @@ async def get_dashboard(db: Session = Depends(get_db)):
     total_orders = db.query(func.count(models.Order.id)).scalar() or 0
 
     order_statuses = db.query(
-        models.Order.status, func.count(models.Order.id)
-    ).group_by(models.Order.status).all()
+        models.OrderStatus.code, func.count(models.Order.id)
+    ).outerjoin(
+        models.OrderStatus, models.Order.status_id == models.OrderStatus.id
+    ).group_by(models.OrderStatus.code).all()
     orders_by_status = {s: c for s, c in order_statuses}
 
     total_stl_projects = db.query(func.count(models.StlProject.id)).scalar() or 0

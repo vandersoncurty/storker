@@ -74,7 +74,9 @@ def check_and_migrate():
                     _dialect_safe_add_column(engine, table_name, column)
 
     _migrate_absolute_to_relative_paths()
-    _seed_order_statuses()
+    _migrate_order_status_fk()
+    _migrate_finance_fk()
+    _seed_all()
 
 
 def _migrate_absolute_to_relative_paths():
@@ -129,26 +131,126 @@ def get_db():
         db.close()
 
 
-DEFAULT_ORDER_STATUSES = [
-    {"code": "PENDING", "label": "Pendente", "color": "#f59e0b", "sort_order": 1},
-    {"code": "PRINTING", "label": "Imprimindo", "color": "#3b82f6", "sort_order": 2},
-    {"code": "DONE", "label": "Concluído", "color": "#22c55e", "sort_order": 3},
-    {"code": "SHIPPED", "label": "Enviado", "color": "#6b7280", "sort_order": 4},
-    {"code": "CANCELED", "label": "Cancelado", "color": "#ef4444", "sort_order": 5},
-    {"code": "REFUNDED", "label": "Devolvido", "color": "#f97316", "sort_order": 6},
-]
+SEED_DATA = {
+    "order_statuses": [
+        {"code": "PENDING", "label": "Pendente", "color": "#f59e0b", "sort_order": 1},
+        {"code": "PRINTING", "label": "Imprimindo", "color": "#3b82f6", "sort_order": 2},
+        {"code": "DONE", "label": "Concluído", "color": "#22c55e", "sort_order": 3},
+        {"code": "SHIPPED", "label": "Enviado", "color": "#6b7280", "sort_order": 4},
+        {"code": "CANCELED", "label": "Cancelado", "color": "#ef4444", "sort_order": 5},
+        {"code": "REFUNDED", "label": "Devolvido", "color": "#f97316", "sort_order": 6},
+    ],
+    "finance_types": [
+        {"code": "income", "label": "Entrada", "color": "#22c55e", "sort_order": 1},
+        {"code": "expense", "label": "Saída", "color": "#ef4444", "sort_order": 2},
+    ],
+    "finance_categories": [
+        {"code": "sale", "label": "Venda", "color": "#22c55e", "sort_order": 1},
+        {"code": "material", "label": "Filamento", "color": "#f59e0b", "sort_order": 2},
+        {"code": "shipping", "label": "Frete", "color": "#3b82f6", "sort_order": 3},
+        {"code": "fee", "label": "Taxa", "color": "#ef4444", "sort_order": 4},
+        {"code": "energy", "label": "Energia", "color": "#f97316", "sort_order": 5},
+        {"code": "other", "label": "Outro", "color": "#6b7280", "sort_order": 6},
+    ],
+    "file_types": [
+        {"code": "stl", "label": "STL"},
+        {"code": "gcode", "label": "GCode"},
+    ],
+    "source_types": [
+        {"code": "upload", "label": "Upload"},
+        {"code": "thingiverse", "label": "Thingiverse"},
+    ],
+    "sync_statuses": [
+        {"code": "DOWNLOADED", "label": "OK", "color": "#22c55e"},
+        {"code": "FAILED", "label": "Falha", "color": "#ef4444"},
+    ],
+}
 
 
-def _seed_order_statuses():
-    from .models import OrderStatus
-    from sqlalchemy import inspect
-    inspector = inspect(engine)
-    if "order_statuses" not in set(inspector.get_table_names()):
-        return
-    with SessionLocal() as db:
-        existing = {r.code for r in db.query(OrderStatus).all()}
-        for data in DEFAULT_ORDER_STATUSES:
-            if data["code"] not in existing:
-                db.add(OrderStatus(**data))
+def _seed_all(db=None):
+    from . import models as m
+    if db is None:
+        db = SessionLocal()
+        close = True
+    else:
+        close = False
+    try:
+        for table_name, rows in SEED_DATA.items():
+            model = getattr(m, {
+                "order_statuses": "OrderStatus",
+                "finance_types": "FinanceType",
+                "finance_categories": "FinanceCategory",
+                "file_types": "FileType",
+                "source_types": "SourceType",
+                "sync_statuses": "SyncStatus",
+            }[table_name])
+            existing = {r.code for r in db.query(model).all()}
+            for data in rows:
+                if data["code"] not in existing:
+                    db.add(model(**data))
         if db.new:
             db.commit()
+    finally:
+        if close:
+            db.close()
+
+
+def _code_to_id(db, table, code):
+    from . import models as m
+    model = getattr(m, {
+        "order_statuses": "OrderStatus",
+        "finance_types": "FinanceType",
+        "finance_categories": "FinanceCategory",
+    }[table])
+    row = db.query(model).filter(model.code == code).first()
+    return row.id if row else None
+
+
+def _migrate_order_status_fk():
+    from sqlalchemy import inspect as sa_inspect
+    inspector = sa_inspect(engine)
+    if "orders" not in set(inspector.get_table_names()):
+        return
+    cols = {c["name"] for c in inspector.get_columns("orders")}
+    if "status_id" in cols:
+        return
+    from sqlalchemy import Column, Integer
+    _dialect_safe_add_column(engine, "orders", Column("status_id", Integer, nullable=True))
+    with SessionLocal() as db:
+        _seed_all()
+        from . import models as m
+        rows = db.query(m.Order).filter(m.Order.status_id.is_(None), m.Order.status.isnot(None)).all()
+        for order in rows:
+            oid = _code_to_id(db, "order_statuses", order.status)
+            if oid:
+                order.status_id = oid
+        if db.dirty:
+            db.commit()
+        for order in rows:
+            if order.status_id is not None:
+                order.status = None
+
+
+def _migrate_finance_fk():
+    from sqlalchemy import inspect as sa_inspect
+    inspector = sa_inspect(engine)
+    if "finance_entries" not in set(inspector.get_table_names()):
+        return
+    cols = {c["name"] for c in inspector.get_columns("finance_entries")}
+    if "type_id" in cols:
+        return
+    from sqlalchemy import Column, Integer
+    _dialect_safe_add_column(engine, "finance_entries", Column("type_id", Integer, nullable=True))
+    _dialect_safe_add_column(engine, "finance_entries", Column("category_id", Integer, nullable=True))
+    with SessionLocal() as db:
+        _seed_all()
+        from . import models as m
+        rows = db.query(m.FinanceEntry).filter(m.FinanceEntry.type_id.is_(None)).all()
+        for e in rows:
+            e.type_id = _code_to_id(db, "finance_types", e.type)
+            e.category_id = _code_to_id(db, "finance_categories", e.category)
+        if db.dirty:
+            db.commit()
+        for e in rows:
+            e.type = None
+            e.category = None
