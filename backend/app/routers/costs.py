@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models, schemas
+from ..paths import abs_path
 from ..services.settings_file import load_settings
 from ..services.spoolman import list_spools
 
@@ -80,6 +81,21 @@ def get_cost_settings():
     return load_settings().costs
 
 
+@router.post("/apply/{product_id}")
+def apply_cost(product_id: int, payload: CostEstimate, db: Session = Depends(get_db)):
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    result = estimate_cost(payload)
+    product.filament_grams = payload.filament_grams
+    product.print_time_seconds = payload.print_time_seconds
+    product.production_cost = round(result.production_cost, 2)
+    product.sale_price = round(result.final_price, 2)
+    product.taxes_fees = round(payload.taxes_fees, 2)
+    db.commit()
+    return {"detail": "Custo aplicado ao produto", "production_cost": product.production_cost, "sale_price": product.sale_price}
+
+
 def parse_gcode_text(text: str) -> dict:
     grams = 0.0
     seconds = 0
@@ -113,11 +129,23 @@ def parse_gcode_text(text: str) -> dict:
         r'print\s*time.*?=\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?',
         r'time\s*left.*?=\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?',
         r';TIME_ELAPSED:\s*(\d+)',
+        r'print\s*time:\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?',
+        r'total\s*print\s*time:\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?',
+        r'build\s*time:\s*(\d+):(\d+):(\d+)',
+        r'total\s*printing\s*time\s*=\s*(\d+)s',
     ]
     for pat in time_pats:
         m = re.search(pat, text, re.IGNORECASE)
         if m:
             if pat == r';TIME_ELAPSED:\s*(\d+)':
+                matches = re.findall(pat, text, re.IGNORECASE)
+                seconds = max(int(t) for t in matches)
+            elif pat == r'build\s*time:\s*(\d+):(\d+):(\d+)':
+                h = int(m.group(1))
+                mn = int(m.group(2))
+                s = int(m.group(3))
+                seconds = h * 3600 + mn * 60 + s
+            elif pat == r'total\s*printing\s*time\s*=\s*(\d+)s':
                 seconds = int(m.group(1))
             else:
                 h = int(m.group(1)) if m.group(1) else 0
@@ -169,7 +197,7 @@ async def auto_calculate(project_id: int, db: Session = Depends(get_db)):
     if not gcode_file:
         raise HTTPException(status_code=400, detail="Projeto não possui GCode vinculado")
 
-    with open(gcode_file.file_path, "r") as f:
+    with open(str(abs_path(gcode_file.file_path)), "r") as f:
         text = f.read()
 
     parsed = parse_gcode_text(text)

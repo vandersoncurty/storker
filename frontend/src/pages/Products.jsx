@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api, { API_URL } from '../api';
 import ThingiverseIcon from '../components/ThingiverseIcon';
+import ErrorBoundary from '../ErrorBoundary';
 
 const FALLBACK_COST = {
   filament_price_per_kg: 100,
@@ -91,7 +92,7 @@ export default function Products() {
           ))}
         </div>
       )}
-      {editing && <EditModal product={editing} onClose={() => setEditing(null)} onRefresh={loadProducts} />}
+      {editing && <ErrorBoundary key={editing.id}><EditModal product={editing} onClose={() => setEditing(null)} onRefresh={loadProducts} /></ErrorBoundary>}
     </div>
   );
 }
@@ -101,7 +102,7 @@ function ProductCard({ product, onEdit }) {
   const primaryImage = product.images.find(i => i.is_primary);
 
   const imageUrl = primaryImage
-    ? `${API_URL}/images/products/${primaryImage.file_path.split(/[/\\]/).pop()}`
+    ? `${API_URL}/images/products/${primaryImage?.file_path?.split(/[/\\]/)?.pop() || ''}`
     : null;
 
   const variants = product.variants || [];
@@ -233,6 +234,22 @@ function ProductCard({ product, onEdit }) {
 }
 
 function EditModal({ product, onClose, onRefresh }) {
+  const formatTime = (s) => {
+    if (!s || s <= 0) return '';
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  };
+  const parseTime = (str) => {
+    if (!str) return 0;
+    const parts = str.split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60;
+    if (parts.length === 1) return parts[0] * 3600;
+    return 0;
+  };
+
   const [form, setForm] = useState({
     title: product.title,
     description: product.description || '',
@@ -240,7 +257,7 @@ function EditModal({ product, onClose, onRefresh }) {
     production_cost: product.production_cost || '',
     taxes_fees: product.taxes_fees || '',
     filament_grams: product.filament_grams || '',
-    print_time_seconds: product.print_time_seconds || '',
+    print_time: formatTime(product.print_time_seconds),
     is_sliced: product.is_sliced,
   });
   const [saving, setSaving] = useState(false);
@@ -266,8 +283,23 @@ function EditModal({ product, onClose, onRefresh }) {
   const [variants, setVariants] = useState(product.variants || []);
   const [newVariantName, setNewVariantName] = useState('');
   const [newVariantPrice, setNewVariantPrice] = useState('');
+  const [newVariantSpoolId, setNewVariantSpoolId] = useState('');
+  const [newVariantSellInBatch, setNewVariantSellInBatch] = useState(false);
+  const [newVariantBatchSize, setNewVariantBatchSize] = useState(1);
+  const [newVariantAdditionalCost, setNewVariantAdditionalCost] = useState('');
   const [addingVariant, setAddingVariant] = useState(false);
+  const [spools, setSpools] = useState([]);
+  const [spoolsLoading, setSpoolsLoading] = useState(true);
+  const [editingVariantId, setEditingVariantId] = useState(null);
+  const [editVariantForm, setEditVariantForm] = useState({});
+  const [savingVariant, setSavingVariant] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    api.get(`${API_URL}/filament/spools`).then(res => {
+      setSpools(res.data.spools || []);
+    }).catch(() => {}).finally(() => setSpoolsLoading(false));
+  }, []);
 
   const showMessage = (text, type = 'success') => {
     setMessage(text);
@@ -284,7 +316,7 @@ function EditModal({ product, onClose, onRefresh }) {
         production_cost: form.production_cost ? parseFloat(form.production_cost) : null,
         taxes_fees: form.taxes_fees ? parseFloat(form.taxes_fees) : null,
         filament_grams: form.filament_grams ? parseFloat(form.filament_grams) : null,
-        print_time_seconds: form.print_time_seconds ? parseInt(form.print_time_seconds) : null,
+        print_time_seconds: form.print_time ? parseTime(form.print_time) : null,
       });
       showMessage('Salvo!');
       onRefresh();
@@ -340,8 +372,11 @@ function EditModal({ product, onClose, onRefresh }) {
     try {
       const payload = {
         filament_grams: parseFloat(form.filament_grams) || 0,
-        print_time_seconds: parseInt(form.print_time_seconds) || 0,
-        ...costForm,
+        print_time_seconds: parseTime(form.print_time),
+        filament_price_per_kg: costForm.filament_price_per_kg,
+        kwh_rate: costForm.electricity_rate,
+        printer_watts: costForm.printer_watts,
+        profit_margin_percent: costForm.markup_percentage,
       };
       const res = await api.post(`${API_URL}/costs/estimate`, payload);
       setCostResult(res.data);
@@ -355,8 +390,11 @@ function EditModal({ product, onClose, onRefresh }) {
     try {
       const payload = {
         filament_grams: parseFloat(form.filament_grams) || 0,
-        print_time_seconds: parseInt(form.print_time_seconds) || 0,
-        ...costForm,
+        print_time_seconds: parseTime(form.print_time),
+        filament_price_per_kg: costForm.filament_price_per_kg,
+        kwh_rate: costForm.electricity_rate,
+        printer_watts: costForm.printer_watts,
+        profit_margin_percent: costForm.markup_percentage,
       };
       await api.post(`${API_URL}/costs/apply/${product.id}`, payload);
       showMessage('Custo aplicado ao produto!');
@@ -388,10 +426,18 @@ function EditModal({ product, onClose, onRefresh }) {
       const res = await api.post(`${API_URL}/products/${product.id}/variants`, {
         name: newVariantName.trim(),
         filament_price_per_kg: parseFloat(newVariantPrice) || 0,
+        spool_id: newVariantSpoolId ? parseInt(newVariantSpoolId) : null,
+        sell_in_batch: newVariantSellInBatch,
+        batch_size: newVariantSellInBatch ? (parseInt(newVariantBatchSize) || 1) : 1,
+        additional_cost: parseFloat(newVariantAdditionalCost) || 0,
       });
       setVariants(prev => [...prev, res.data]);
       setNewVariantName('');
       setNewVariantPrice('');
+      setNewVariantSpoolId('');
+      setNewVariantSellInBatch(false);
+      setNewVariantBatchSize(1);
+      setNewVariantAdditionalCost('');
       showMessage('Variante adicionada!');
       onRefresh();
     } catch {
@@ -411,6 +457,60 @@ function EditModal({ product, onClose, onRefresh }) {
     } catch {
       showMessage('Erro ao remover variante', 'error');
     }
+  };
+
+  const handleStartEditVariant = (v) => {
+    setEditVariantForm({
+      name: v.name,
+      filament_price_per_kg: v.filament_price_per_kg,
+      spool_id: v.spool_id || '',
+      sell_in_batch: v.sell_in_batch || false,
+      batch_size: v.batch_size || 1,
+      additional_cost: v.additional_cost || 0,
+      production_cost: v.production_cost ?? '',
+      sale_price: v.sale_price ?? '',
+    });
+    setEditingVariantId(v.id);
+  };
+
+  const handleCancelEditVariant = () => {
+    setEditingVariantId(null);
+    setEditVariantForm({});
+  };
+
+  const handleSaveVariant = async () => {
+    const v = variants.find(x => x.id === editingVariantId);
+    if (!v) return;
+    setSavingVariant(true);
+    try {
+      const payload = {
+        name: editVariantForm.name.trim(),
+        filament_price_per_kg: parseFloat(editVariantForm.filament_price_per_kg) || 0,
+        spool_id: editVariantForm.spool_id ? parseInt(editVariantForm.spool_id) : null,
+        sell_in_batch: editVariantForm.sell_in_batch,
+        batch_size: editVariantForm.sell_in_batch ? (parseInt(editVariantForm.batch_size) || 1) : 1,
+        additional_cost: parseFloat(editVariantForm.additional_cost) || 0,
+      };
+      if (editVariantForm.production_cost !== '') {
+        payload.production_cost = parseFloat(editVariantForm.production_cost);
+      }
+      if (editVariantForm.sale_price !== '') {
+        payload.sale_price = parseFloat(editVariantForm.sale_price);
+      }
+      const res = await api.patch(`${API_URL}/products/${product.id}/variants/${editingVariantId}`, payload);
+      setVariants(prev => prev.map(x => x.id === editingVariantId ? res.data : x));
+      showMessage('Variante atualizada!');
+      handleCancelEditVariant();
+      onRefresh();
+    } catch {
+      showMessage('Erro ao atualizar variante', 'error');
+    } finally {
+      setSavingVariant(false);
+    }
+  };
+
+  const updateEditField = (field, value) => {
+    setEditVariantForm(f => ({ ...f, [field]: value }));
   };
 
   return (
@@ -461,7 +561,7 @@ function EditModal({ product, onClose, onRefresh }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Field label="Peso filamento (g)" type="number" value={form.filament_grams} onChange={v => setForm(f => ({ ...f, filament_grams: v }))} />
-            <Field label="Tempo impressão (s)" type="number" value={form.print_time_seconds} onChange={v => setForm(f => ({ ...f, print_time_seconds: v }))} />
+            <Field label="Tempo impressão (HH:MM:SS)" value={form.print_time} onChange={v => setForm(f => ({ ...f, print_time: v }))} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
@@ -536,7 +636,7 @@ function EditModal({ product, onClose, onRefresh }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Filamento</span><span style={{ fontWeight: 600 }}>R$ {costResult.filament_cost}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Energia</span><span style={{ fontWeight: 600 }}>R$ {costResult.electricity_cost}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: '4px' }}><span style={{ color: 'var(--text)' }}>Custo produção</span><span style={{ fontWeight: 700 }}>R$ {costResult.production_cost}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Preço sugerido</span><span style={{ fontWeight: 700, color: 'var(--accent)' }}>R$ {costResult.suggested_price}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text)' }}>Preço sugerido</span><span style={{ fontWeight: 700, color: 'var(--accent)' }}>R$ {costResult.final_price}</span></div>
                   <button onClick={handleApplyCost} disabled={applying} style={{
                     marginTop: '8px', padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
                     background: applying ? 'var(--border-h)' : 'var(--accent)', color: '#fff',
@@ -561,54 +661,214 @@ function EditModal({ product, onClose, onRefresh }) {
               </p>
             ) : (
               <div style={{ display: 'grid', gap: '6px' }}>
-                {variants.map(v => (
-                  <div key={v.id} style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '8px 12px', borderRadius: 'var(--radius-sm)',
-                    background: 'var(--bg-muted)', fontSize: '13px',
-                  }}>
-                    <span style={{ flex: 1, fontWeight: 600, color: 'var(--text-h)' }}>{v.name}</span>
-                    <span style={{ color: 'var(--text)' }}>
-                      {v.filament_price_per_kg ? `R$${v.filament_price_per_kg.toFixed(2)}/kg` : '—'}
-                    </span>
-                    <span style={{ fontWeight: 600, color: 'var(--success)' }}>
-                      R$ {v.sale_price?.toFixed(2) || '—'}
-                    </span>
-                    <button onClick={() => handleDeleteVariant(v)} style={{
-                      padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--danger)', background: 'transparent',
-                      cursor: 'pointer', fontSize: '11px', color: 'var(--danger)',
-                    }}>Remover</button>
-                  </div>
-                ))}
+                {variants.map(v => {
+                  const isEditing = editingVariantId === v.id;
+                  const ef = isEditing ? editVariantForm : v;
+                  const spool = spools.find(s => s.id === ef.spool_id);
+                  const perUnit = ef.sell_in_batch && ef.batch_size > 1
+                    ? (ef.sale_price / ef.batch_size) : null;
+
+                  if (isEditing) {
+                    return (
+                      <div key={v.id} style={{
+                        display: 'grid', gap: '8px',
+                        padding: '12px', borderRadius: 'var(--radius-sm)',
+                        background: 'var(--bg-muted)', fontSize: '13px',
+                        border: '1px solid var(--accent-border)',
+                      }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 130px', gap: '6px' }}>
+                          <label style={{ display: 'grid', gap: '2px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text)' }}>Nome</span>
+                            <input value={editVariantForm.name} onChange={e => updateEditField('name', e.target.value)}
+                              style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </label>
+                          <label style={{ display: 'grid', gap: '2px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text)' }}>R$/kg</span>
+                            <input type="number" value={editVariantForm.filament_price_per_kg}
+                              onChange={e => updateEditField('filament_price_per_kg', e.target.value)}
+                              style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </label>
+                          <label style={{ display: 'grid', gap: '2px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text)' }}>Carretel</span>
+                            <select value={editVariantForm.spool_id} onChange={e => updateEditField('spool_id', e.target.value)}
+                              style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg)', color: 'var(--text-h)' }}>
+                              <option value="">Nenhum</option>
+                              {spools.map(s => (
+                                <option key={s.id} value={s.id}>
+                                  {(s.filament?.name || s.filament?.material || `#${s.id}`)} ({s.filament?.vendor?.name || s.filament?.vendor || '—'})
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '12px', color: 'var(--text)' }}>
+                            <input type="checkbox" checked={editVariantForm.sell_in_batch}
+                              onChange={e => updateEditField('sell_in_batch', e.target.checked)}
+                              style={{ accentColor: 'var(--accent)' }} />
+                            Lote
+                          </label>
+                          {editVariantForm.sell_in_batch && (
+                            <>
+                              <label style={{ display: 'grid', gap: '2px' }}>
+                                <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text)' }}>Qtd</span>
+                                <input type="number" min="1" value={editVariantForm.batch_size}
+                                  onChange={e => updateEditField('batch_size', e.target.value)}
+                                  style={{ width: '50px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </label>
+                              <label style={{ display: 'grid', gap: '2px' }}>
+                                <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text)' }}>Extra (R$)</span>
+                                <input type="number" step="0.01" value={editVariantForm.additional_cost}
+                                  onChange={e => updateEditField('additional_cost', e.target.value)}
+                                  style={{ width: '70px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </label>
+                            </>
+                          )}
+                          <label style={{ display: 'grid', gap: '2px' }}>
+                            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text)' }}>Custo (R$)</span>
+                            <input type="number" step="0.01" value={editVariantForm.production_cost}
+                              onChange={e => updateEditField('production_cost', e.target.value)}
+                              placeholder="auto" style={{ width: '70px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </label>
+                          <label style={{ display: 'grid', gap: '2px' }}>
+                            <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text)' }}>Venda (R$)</span>
+                            <input type="number" step="0.01" value={editVariantForm.sale_price}
+                              onChange={e => updateEditField('sale_price', e.target.value)}
+                              placeholder="auto" style={{ width: '70px', padding: '3px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </label>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <button onClick={handleCancelEditVariant} style={{
+                            padding: '4px 12px', borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border)', background: 'transparent',
+                            cursor: 'pointer', fontSize: '12px', color: 'var(--text)',
+                          }}>Cancelar</button>
+                          <button onClick={handleSaveVariant} disabled={savingVariant || !editVariantForm.name.trim()} style={{
+                            padding: '4px 12px', borderRadius: 'var(--radius-sm)', border: 'none',
+                            background: savingVariant ? 'var(--border-h)' : 'var(--accent)', color: '#fff',
+                            cursor: savingVariant ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600,
+                          }}>{savingVariant ? 'Salvando...' : 'Salvar'}</button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={v.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                      background: 'var(--bg-muted)', fontSize: '13px',
+                    }}>
+                      <div style={{ flex: 1, display: 'grid', gap: '1px' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-h)' }}>
+                          {v.name}
+                          {spool && <span style={{ fontWeight: 400, color: 'var(--text)', marginLeft: '6px' }}>
+                            ({(spool.filament?.name || spool.filament?.material || `Spool #${v.spool_id}`)})
+                          </span>}
+                        </div>
+                        <div style={{ color: 'var(--text)', fontSize: '11px' }}>
+                          {v.filament_price_per_kg ? `R$${v.filament_price_per_kg.toFixed(2)}/kg` : '—'}
+                          {v.sell_in_batch && v.batch_size > 1 && ` · Lote de ${v.batch_size}`}
+                          {v.additional_cost > 0 && ` · +R$${v.additional_cost.toFixed(2)}`}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--success)' }}>
+                          R$ {v.sale_price?.toFixed(2) || '—'}
+                        </div>
+                        {perUnit != null && (
+                          <div style={{ fontSize: '10px', color: 'var(--text)' }}>
+                            ~R$ {perUnit.toFixed(2)}/un
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => handleStartEditVariant(v)} style={{
+                        padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--accent)', background: 'transparent',
+                        cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
+                      }}>Editar</button>
+                      <button onClick={() => handleDeleteVariant(v)} style={{
+                        padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--danger)', background: 'transparent',
+                        cursor: 'pointer', fontSize: '11px', color: 'var(--danger)',
+                      }}>Remover</button>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'flex-end' }}>
-              <label style={{ display: 'grid', gap: '4px', flex: 1 }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Nome</span>
-                <input type="text" value={newVariantName} onChange={e => setNewVariantName(e.target.value)}
-                  placeholder="Ex: PLA Prata" style={{
+            <div style={{ display: 'grid', gap: '8px', marginTop: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 140px', gap: '8px', alignItems: 'end' }}>
+                <label style={{ display: 'grid', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Nome</span>
+                  <input type="text" value={newVariantName} onChange={e => setNewVariantName(e.target.value)}
+                    placeholder="Ex: PLA Prata" style={{
+                      padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border)', fontSize: '13px',
+                    }} />
+                </label>
+                <label style={{ display: 'grid', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>R$/kg</span>
+                  <input type="number" value={newVariantPrice} onChange={e => setNewVariantPrice(e.target.value)}
+                    placeholder="100" style={{
+                      padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border)', fontSize: '13px',
+                    }} />
+                </label>
+                <label style={{ display: 'grid', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Carretel</span>
+                  <select value={newVariantSpoolId} onChange={e => setNewVariantSpoolId(e.target.value)} style={{
                     padding: '6px 10px', borderRadius: 'var(--radius-sm)',
                     border: '1px solid var(--border)', fontSize: '13px',
-                  }} />
-              </label>
-              <label style={{ display: 'grid', gap: '4px', width: '120px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>R$/kg</span>
-                <input type="number" value={newVariantPrice} onChange={e => setNewVariantPrice(e.target.value)}
-                  placeholder="100" style={{
-                    padding: '6px 10px', borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)', fontSize: '13px',
-                  }} />
-              </label>
-              <button onClick={handleAddVariant} disabled={addingVariant || !newVariantName.trim()} style={{
-                padding: '6px 14px', borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--accent)', background: 'transparent',
-                cursor: (addingVariant || !newVariantName.trim()) ? 'not-allowed' : 'pointer',
-                fontSize: '13px', color: 'var(--accent)', fontWeight: 600,
-              }}>
-                {addingVariant ? 'Adicionando...' : 'Adicionar'}
-              </button>
+                    background: 'var(--bg)', color: 'var(--text-h)',
+                  }}>
+                    <option value="">{spoolsLoading ? 'Carregando...' : 'Nenhum'}</option>
+                    {spools.map(s => {
+                      const fil = s.filament || {};
+                      return (
+                        <option key={s.id} value={s.id}>
+                          {fil.name || fil.material || `Spool #${s.id}`} ({fil.vendor?.name || fil.vendor || '—'})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text)' }}>
+                  <input type="checkbox" checked={newVariantSellInBatch}
+                    onChange={e => setNewVariantSellInBatch(e.target.checked)}
+                    style={{ accentColor: 'var(--accent)' }} />
+                  Vender em lote
+                </label>
+                {newVariantSellInBatch && (
+                  <>
+                    <label style={{ display: 'grid', gap: '2px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text)' }}>Qtd</span>
+                      <input type="number" min="1" value={newVariantBatchSize}
+                        onChange={e => setNewVariantBatchSize(e.target.value)}
+                        style={{ width: '60px', padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border)', fontSize: '13px', }} />
+                    </label>
+                    <label style={{ display: 'grid', gap: '2px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text)' }}>Custo extra</span>
+                      <input type="number" step="0.01" value={newVariantAdditionalCost}
+                        onChange={e => setNewVariantAdditionalCost(e.target.value)}
+                        placeholder="0,00" style={{ width: '90px', padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border)', fontSize: '13px', }} />
+                    </label>
+                  </>
+                )}
+                <button onClick={handleAddVariant} disabled={addingVariant || !newVariantName.trim()} style={{
+                  marginLeft: 'auto', padding: '6px 16px', borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--accent)', background: 'transparent',
+                  cursor: (addingVariant || !newVariantName.trim()) ? 'not-allowed' : 'pointer',
+                  fontSize: '13px', color: 'var(--accent)', fontWeight: 600,
+                }}>
+                  {addingVariant ? 'Adicionando...' : 'Adicionar'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -643,7 +903,7 @@ function EditModal({ product, onClose, onRefresh }) {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                 {product.images.map(img => {
-                  const imgSrc = `${API_URL}/images/products/${img.file_path.split(/[/\\]/).pop()}`;
+                  const imgSrc = `${API_URL}/images/products/${(img.file_path?.split(/[/\\]/)?.pop()) || ''}`;
                   return (
                     <div key={img.id} style={{
                       aspectRatio: '1', borderRadius: 'var(--radius-sm)', overflow: 'hidden',

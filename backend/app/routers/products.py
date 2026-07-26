@@ -1,6 +1,7 @@
 """Router de produtos - CRUD, imagens, variantes e gestão de catálogo."""
 
 import io
+import os
 import shutil
 import uuid
 from pathlib import Path
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from ..config import PRODUCT_IMAGES_DIR
 from ..database import get_db
 from .. import models, schemas
+from ..paths import rel, abs_path
 from ..services.settings_file import load_settings
 from ..services.spoolman import get_spool
 from .costs import CostEstimate, estimate_cost
@@ -76,10 +78,14 @@ def update_product(product_id: int, payload: schemas.ProductUpdate, db: Session 
 
 @router.delete("/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    """Remove um produto e todas as suas imagens."""
+    """Remove um produto, suas imagens e arquivos no disco."""
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
+    for img in product.images:
+        file_path = abs_path(img.file_path)
+        if file_path.exists():
+            os.remove(file_path)
     db.delete(product)
     db.commit()
     return {"detail": "Produto removido"}
@@ -117,7 +123,7 @@ async def upload_image(product_id: int, file: UploadFile = File(...), db: Sessio
 
     image = models.ProductImage(
         product_id=product_id,
-        file_path=str(dest),
+        file_path=rel(dest),
         source="upload",
         is_primary=(not has_primary),
     )
@@ -164,7 +170,7 @@ def delete_image(product_id: int, image_id: int, db: Session = Depends(get_db)):
         if other:
             other.is_primary = True
 
-    file_path = Path(image.file_path)
+    file_path = abs_path(image.file_path)
     if file_path.exists():
         file_path.unlink()
 
@@ -173,7 +179,8 @@ def delete_image(product_id: int, image_id: int, db: Session = Depends(get_db)):
     return {"detail": "Imagem removida"}
 
 
-def _calc_variant_price(product: models.Product, filament_price_per_kg: float) -> dict:
+def _calc_variant_price(product: models.Product, filament_price_per_kg: float,
+                        additional_cost: float = 0.0, batch_size: int = 1) -> dict:
     settings = load_settings()
     costs = settings.costs
     payload = CostEstimate(
@@ -188,8 +195,10 @@ def _calc_variant_price(product: models.Product, filament_price_per_kg: float) -
         profit_margin_percent=costs.profit_margin_percent,
         taxes_fees=product.taxes_fees or 0,
     )
-    result = estimate_cost(payload)
-    return {"production_cost": result.production_cost, "sale_price": result.final_price}
+    base = estimate_cost(payload)
+    prod_cost = base.production_cost * batch_size + additional_cost
+    final_price = base.final_price * batch_size + additional_cost
+    return {"production_cost": round(prod_cost, 2), "sale_price": round(final_price, 2)}
 
 
 @router.post("/{product_id}/variants", response_model=schemas.ProductVariantResponse)
@@ -199,20 +208,25 @@ async def create_variant(product_id: int, payload: schemas.ProductVariantCreate,
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
     filament_price = payload.filament_price_per_kg
-    if payload.filament_spool_id:
+    spool_id = payload.spool_id or payload.filament_spool_id
+    if spool_id:
         try:
-            spool = await get_spool(payload.filament_spool_id)
+            spool = await get_spool(spool_id)
             if spool.get("price") and spool.get("initial_weight"):
                 filament_price = spool["price"] / spool["initial_weight"] * 1000
         except Exception:
             pass
 
-    prices = _calc_variant_price(product, filament_price)
+    prices = _calc_variant_price(product, filament_price, payload.additional_cost, payload.batch_size)
 
     variant = models.ProductVariant(
         product_id=product_id,
         name=payload.name,
         filament_price_per_kg=filament_price,
+        spool_id=spool_id,
+        sell_in_batch=payload.sell_in_batch,
+        batch_size=payload.batch_size,
+        additional_cost=payload.additional_cost,
         production_cost=prices["production_cost"],
         sale_price=prices["sale_price"],
     )
@@ -243,16 +257,31 @@ def update_variant(product_id: int, variant_id: int, payload: schemas.ProductVar
         variant.name = payload.name
     if payload.filament_price_per_kg is not None:
         variant.filament_price_per_kg = payload.filament_price_per_kg
-    if payload.filament_price_per_kg is not None or payload.production_cost is not None or payload.sale_price is not None:
+    if payload.spool_id is not None:
+        variant.spool_id = payload.spool_id
+    if payload.sell_in_batch is not None:
+        variant.sell_in_batch = payload.sell_in_batch
+    if payload.batch_size is not None:
+        variant.batch_size = payload.batch_size
+    if payload.additional_cost is not None:
+        variant.additional_cost = payload.additional_cost
+
+    recalc = any(x is not None for x in [
+        payload.filament_price_per_kg, payload.production_cost,
+        payload.sale_price, payload.batch_size, payload.additional_cost,
+    ])
+    if recalc or not variant.production_cost or not variant.sale_price:
         product = db.query(models.Product).filter(models.Product.id == product_id).first()
-        prices = _calc_variant_price(product, variant.filament_price_per_kg)
-        variant.production_cost = payload.production_cost if payload.production_cost is not None else prices["production_cost"]
-        variant.sale_price = payload.sale_price if payload.sale_price is not None else prices["sale_price"]
-    elif not variant.production_cost or not variant.sale_price:
-        product = db.query(models.Product).filter(models.Product.id == product_id).first()
-        prices = _calc_variant_price(product, variant.filament_price_per_kg)
-        variant.production_cost = prices["production_cost"]
-        variant.sale_price = prices["sale_price"]
+        prices = _calc_variant_price(product, variant.filament_price_per_kg,
+                                     variant.additional_cost, variant.batch_size)
+        if payload.production_cost is not None:
+            variant.production_cost = payload.production_cost
+        else:
+            variant.production_cost = prices["production_cost"]
+        if payload.sale_price is not None:
+            variant.sale_price = payload.sale_price
+        else:
+            variant.sale_price = prices["sale_price"]
 
     db.commit()
     db.refresh(variant)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Enum
 from sqlalchemy.orm import relationship
@@ -24,8 +24,8 @@ class StlProject(Base):
     title = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     thing_id = Column(Integer, nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     files = relationship("StlFile", back_populates="project", cascade="all, delete-orphan")
 
@@ -40,7 +40,7 @@ class StlFile(Base):
     file_path = Column(String, nullable=False)
     file_type = Column(String, default="stl")  # "stl" ou "gcode"
     is_sliced = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     project = relationship("StlProject", back_populates="files")
 
@@ -60,11 +60,12 @@ class Product(Base):
     production_cost = Column(Float, nullable=True)
     sale_price = Column(Float, nullable=True)
     taxes_fees = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
     variants = relationship("ProductVariant", back_populates="product", cascade="all, delete-orphan")
+    order_items = relationship("OrderItem", back_populates="product")
 
 
 class ProductVariant(Base):
@@ -75,9 +76,13 @@ class ProductVariant(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     name = Column(String, nullable=False)
     filament_price_per_kg = Column(Float, default=0.0)
+    spool_id = Column(Integer, nullable=True)
+    sell_in_batch = Column(Boolean, default=False)
+    batch_size = Column(Integer, default=1)
+    additional_cost = Column(Float, default=0.0)
     production_cost = Column(Float, nullable=True)
     sale_price = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     product = relationship("Product", back_populates="variants")
 
@@ -91,7 +96,7 @@ class ProductImage(Base):
     original_url = Column(String, nullable=True)
     source = Column(String, default="upload")  # "thingiverse" ou "upload"
     is_primary = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     product = relationship("Product", back_populates="images")
 
@@ -114,15 +119,17 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
+    order_number = Column(String, nullable=True, index=True)
     shopee_order_id = Column(String, nullable=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    quantity = Column(Integer, default=1)
     status = Column(String, default="PENDING")  # PENDING, PRINTING, DONE, SHIPPED
     amount = Column(Float, nullable=True)
     buyer_name = Column(String, nullable=True)
     buyer_contact = Column(String, nullable=True)
     shipping_address = Column(String, nullable=True)
     notes = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     product = relationship("Product")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -138,7 +145,7 @@ class FinanceEntry(Base):
     category = Column(String, default="other")  # sale, material, shipping, fee, other
     reference_type = Column(String, nullable=True)  # "order" ou "manual"
     reference_id = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class ThingiverseCollectionConfig(Base):
@@ -161,4 +168,4 @@ class ThingiverseSync(Base):
     thing_url = Column(String)
     local_path = Column(String)
     status = Column(String, default="DOWNLOADED")  # DOWNLOADED / FAILED
-    synced_at = Column(DateTime, default=datetime.utcnow)
+    synced_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

@@ -44,11 +44,19 @@ class ProductVariantCreate(BaseModel):
     name: str
     filament_price_per_kg: float = 0.0
     filament_spool_id: Optional[int] = None
+    spool_id: Optional[int] = None
+    sell_in_batch: bool = False
+    batch_size: int = 1
+    additional_cost: float = 0.0
 
 
 class ProductVariantUpdate(BaseModel):
     name: Optional[str] = None
     filament_price_per_kg: Optional[float] = None
+    spool_id: Optional[int] = None
+    sell_in_batch: Optional[bool] = None
+    batch_size: Optional[int] = None
+    additional_cost: Optional[float] = None
     production_cost: Optional[float] = None
     sale_price: Optional[float] = None
 
@@ -60,6 +68,10 @@ class ProductVariantResponse(BaseModel):
     product_id: int
     name: str
     filament_price_per_kg: float
+    spool_id: Optional[int] = None
+    sell_in_batch: bool = False
+    batch_size: int = 1
+    additional_cost: float = 0.0
     production_cost: Optional[float] = None
     sale_price: Optional[float] = None
     created_at: datetime
@@ -87,8 +99,10 @@ class ProductResponse(BaseModel):
 
 
 class OrderBase(BaseModel):
+    order_number: Optional[str] = None
     shopee_order_id: Optional[str] = None
     product_id: Optional[int] = None
+    quantity: int = 1
     amount: Optional[float] = None
     buyer_name: Optional[str] = None
     buyer_contact: Optional[str] = None
@@ -101,7 +115,9 @@ class OrderCreate(OrderBase):
 
 
 class OrderUpdate(BaseModel):
+    order_number: Optional[str] = None
     product_id: Optional[int] = None
+    quantity: Optional[int] = None
     amount: Optional[float] = None
     buyer_name: Optional[str] = None
     buyer_contact: Optional[str] = None
