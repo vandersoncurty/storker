@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api, { API_URL } from '../api';
+import api, { API_URL } from './api';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import FileExplorer from './pages/FileExplorer';
