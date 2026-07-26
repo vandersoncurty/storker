@@ -201,11 +201,14 @@ async def send_order_to_printer(order_id: int, db: Session = Depends(get_db)):
                 continue
             try:
                 await upload_file_to_moonraker(gf.filename, str(gcode_path))
+                queue_ok = True
                 try:
                     await post_job_queue(f"Storker/{gf.filename}")
-                except Exception:
-                    pass
-                sent.append(gf.filename)
+                except Exception as qe:
+                    queue_ok = False
+                    errors.append(f"{gf.filename}: upload ok, fila: {qe}")
+                if queue_ok:
+                    sent.append(gf.filename)
             except Exception as e:
                 errors.append(f"{gf.filename}: {e}")
 

@@ -268,10 +268,9 @@ async def send_to_printer(project_id: int, start: bool = Query(False, descriptio
     moonraker_path = f"Storker/{gcode_file.filename}"
     try:
         await post_job_queue(moonraker_path)
-    except Exception:
-        pass
-
-    result = {"detail": f"GCode enviado para Moonraker e adicionado à fila", "filename": gcode_file.filename}
+        result = {"detail": "GCode enviado para Moonraker e adicionado à fila", "filename": gcode_file.filename}
+    except Exception as e:
+        result = {"detail": f"GCode enviado para Moonraker, mas erro na fila: {e}", "filename": gcode_file.filename}
 
     if start:
         try:
