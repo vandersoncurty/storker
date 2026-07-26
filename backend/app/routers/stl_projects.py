@@ -60,6 +60,13 @@ def update_project(project_id: int, payload: schemas.StlProjectUpdate, db: Sessi
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
     if payload.title is not None:
+        stl_ids = {f.id for f in project.files if f.file_type == "stl"}
+        gcode_stl_ids = {f.stl_file_id for f in project.files if f.file_type == "gcode" and f.stl_file_id is not None}
+        missing = stl_ids - gcode_stl_ids
+        if missing:
+            missing_names = [f.filename for f in project.files if f.id in missing]
+            raise HTTPException(status_code=400, detail=f"Vincule GCode a todos os STLs antes de criar o produto. Faltam: {', '.join(missing_names)}")
+
         project.title = payload.title
         project.info_pending = False
         for f in project.files:
@@ -81,6 +88,48 @@ def update_project(project_id: int, payload: schemas.StlProjectUpdate, db: Sessi
                 is_sliced=any(f.is_sliced for f in project.files),
             )
             db.add(product)
+            db.flush()
+
+            for gcode_file in project.files:
+                if gcode_file.file_type != "gcode":
+                    continue
+                gcode_path = abs_path(gcode_file.file_path)
+                if not gcode_path.exists():
+                    continue
+                try:
+                    content = gcode_path.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    continue
+                parsed = parse_gcode_text(content)
+                if parsed["filament_grams"] > 0:
+                    product.filament_grams = parsed["filament_grams"]
+                    product.print_time_seconds = parsed["print_time_seconds"]
+                    settings = load_settings()
+                    c = settings.costs
+                    cost_payload = CostEstimate(
+                        filament_grams=parsed["filament_grams"],
+                        print_time_seconds=parsed["print_time_seconds"],
+                        filament_price_per_kg=0,
+                        printer_watts=c.printer_watts,
+                        kwh_rate=c.kwh_rate,
+                        labor_cost_per_hour=c.labor_cost_per_hour,
+                        fixed_cost_per_print=c.fixed_cost_per_print,
+                        ecommerce_fee_percent=c.ecommerce_fee_percent,
+                        profit_margin_percent=c.profit_margin_percent,
+                    )
+                    result = estimate_cost(cost_payload)
+                    if not product.variants:
+                        vname = Path(gcode_file.filename).stem.replace("_gcode", "").replace("-gcode", "").strip()
+                        if not vname or vname == Path(gcode_file.filename).stem:
+                            vname = "Padrão"
+                        variant = models.ProductVariant(
+                            product_id=product.id,
+                            name=vname,
+                            production_cost=result.production_cost,
+                            sale_price=result.final_price,
+                        )
+                        db.add(variant)
+                    break
     if payload.description is not None:
         project.description = payload.description
     db.commit()
@@ -106,18 +155,23 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/projects/{project_id}/link-gcode", response_model=schemas.StlProjectResponse)
-async def link_gcode(project_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Faz upload de um GCode e vincula a um projeto.
-    Remove a label 'não fatiado' para os arquivos com GCode vinculado.
-    Automaticamente analisa o GCode para extrair gramas/tempo e
-    atualiza os custos do produto associado.
-    """
+async def link_gcode(project_id: int, file: UploadFile = File(...), stl_file_id: int = Query(None, description="ID do arquivo STL ao qual este GCode pertence"), db: Session = Depends(get_db)):
+    """Faz upload de um GCode e vincula a um projeto (e opcionalmente a um STL específico)."""
     project = db.query(models.StlProject).filter(models.StlProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
 
     if not file.filename.lower().endswith(".gcode"):
         raise HTTPException(status_code=400, detail="Apenas arquivos .gcode são aceitos")
+
+    if stl_file_id:
+        stl_file = db.query(models.StlFile).filter(
+            models.StlFile.id == stl_file_id,
+            models.StlFile.project_id == project_id,
+            models.StlFile.file_type == "stl",
+        ).first()
+        if not stl_file:
+            raise HTTPException(status_code=400, detail="STL não encontrado no projeto")
 
     proj_dir = GCODES_DIR / project.name
     proj_dir.mkdir(parents=True, exist_ok=True)
@@ -135,6 +189,7 @@ async def link_gcode(project_id: int, file: UploadFile = File(...), db: Session 
         file_path=rel(dest),
         file_type="gcode",
         is_sliced=True,
+        stl_file_id=stl_file_id,
     )
     db.add(gcode_file)
 

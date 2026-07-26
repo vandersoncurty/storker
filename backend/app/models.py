@@ -34,6 +34,7 @@ class StlFile(Base):
     file_path = Column(String, nullable=False)
     file_type = Column(String, default="stl")  # "stl" ou "gcode"
     is_sliced = Column(Boolean, default=False)
+    stl_file_id = Column(Integer, ForeignKey("stl_files.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     project = relationship("StlProject", back_populates="files")

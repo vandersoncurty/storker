@@ -371,6 +371,7 @@ class StlFileResponse(BaseModel):
     file_path: str
     file_type: str
     is_sliced: bool
+    stl_file_id: Optional[int] = None
     created_at: datetime
 
 

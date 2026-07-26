@@ -542,9 +542,38 @@ function EditProjectModal({ project, onClose, onSave }) {
   const [title, setTitle] = useState(project.title || project.name);
   const [description, setDescription] = useState(project.description || '');
   const [viewingStl, setViewingStl] = useState(null);
+  const [linkingStlId, setLinkingStlId] = useState(null);
+  const gcodeInputRef = useRef(null);
+
+  useEffect(() => {
+    if (linkingStlId && gcodeInputRef.current) {
+      gcodeInputRef.current.value = '';
+      gcodeInputRef.current.click();
+    }
+  }, [linkingStlId]);
 
   const stlFiles = project.files.filter(f => f.file_type === 'stl');
-  const gcodeFiles = project.files.filter(f => f.file_type === 'gcode');
+
+  const gcodeByStlId = {};
+  project.files.filter(f => f.file_type === 'gcode' && f.stl_file_id).forEach(g => {
+    gcodeByStlId[g.stl_file_id] = g;
+  });
+
+  const allStlsHaveGcode = stlFiles.every(f => gcodeByStlId[f.id]);
+
+  const handleLinkGcodeStl = async (e, stlId) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await api.post(`${API_URL}/stl/projects/${project.id}/link-gcode?stl_file_id=${stlId}`, formData);
+      alert('GCode vinculado!');
+      window.location.reload();
+    } catch {
+      alert('Erro ao vincular GCode');
+    }
+  };
 
   return (
     <div style={{
@@ -583,49 +612,45 @@ function EditProjectModal({ project, onClose, onSave }) {
             <h3 style={{ fontSize: '14px', margin: '0 0 10px', color: 'var(--text-h)' }}>
               Arquivos ({project.files.length})
             </h3>
-            {stlFiles.length > 0 && (
-              <div style={{ marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>STL</span>
-                {stlFiles.map(f => (
-                  <div key={f.id} style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '6px 8px', marginTop: '4px',
-                    background: 'var(--bg-muted)', borderRadius: 'var(--radius-sm)',
-                    fontSize: '13px',
+            {stlFiles.map(f => {
+              const gcode = gcodeByStlId[f.id];
+              return (
+                <div key={f.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '8px', marginTop: '4px',
+                  background: 'var(--bg-muted)', borderRadius: 'var(--radius-sm)',
+                  fontSize: '13px',
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={gcode ? 'var(--success)' : 'var(--text)'} strokeWidth="2"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                  <span style={{ flex: 1, color: 'var(--text-h)' }}>{f.filename}</span>
+                  {gcode ? (
+                    <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '600' }}>✓ {gcode.filename}</span>
+                  ) : (
+                    <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: '600' }}>Sem GCode</span>
+                  )}
+                  <button onClick={(e) => { e.stopPropagation(); setViewingStl(f.id); }} title="Visualizar 3D" style={{
+                    padding: '2px 6px', borderRadius: '3px', border: '1px solid var(--border)',
+                    background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
                   }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                    <span style={{ flex: 1, color: 'var(--text-h)' }}>{f.filename}</span>
-                    {f.is_sliced && <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '600' }}>Fatiado</span>}
-                    <button onClick={(e) => { e.stopPropagation(); setViewingStl(f.id); }} title="Visualizar 3D" style={{
-                      padding: '2px 6px', borderRadius: '3px', border: '1px solid var(--border)',
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
+                  </button>
+                  {!gcode && (
+                    <button onClick={() => setLinkingStlId(f.id)} title="Vincular GCode" style={{
+                      padding: '2px 8px', borderRadius: '3px', border: '1px solid var(--accent)',
                       background: 'transparent', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)',
                     }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
+                      + GCode
                     </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {gcodeFiles.length > 0 && (
-              <div>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>GCode</span>
-                {gcodeFiles.map(f => (
-                  <div key={f.id} style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '6px 8px', marginTop: '4px',
-                    background: 'var(--bg-muted)', borderRadius: 'var(--radius-sm)',
-                    fontSize: '13px',
-                  }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span style={{ flex: 1, color: 'var(--text-h)' }}>{f.filename}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '600' }}>Fatiado</span>
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center' }}>
+          {!allStlsHaveGcode && stlFiles.length > 0 && (
+            <span style={{ fontSize: '12px', color: 'var(--danger)', flex: 1 }}>Vincule GCode a todos os STLs para criar o produto</span>
+          )}
           <button onClick={onClose} style={{
             padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
             background: 'transparent', cursor: 'pointer', fontSize: '14px',
@@ -636,6 +661,14 @@ function EditProjectModal({ project, onClose, onSave }) {
           }}>Salvar</button>
         </div>
       </div>
+
+      <input type="file" accept=".gcode" ref={gcodeInputRef} style={{ display: 'none' }}
+        onChange={e => {
+          const id = linkingStlId;
+          setLinkingStlId(null);
+          if (id) handleLinkGcodeStl(e, id);
+        }}
+      />
 
       {viewingStl && (
         <STLViewer
