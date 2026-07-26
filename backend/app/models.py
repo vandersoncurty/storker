@@ -125,7 +125,7 @@ class Order(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     variant_id = Column(Integer, ForeignKey("product_variants.id"), nullable=True)
     quantity = Column(Integer, default=1)
-    status = Column(String, default="PENDING")  # PENDING, PRINTING, DONE, SHIPPED
+    status = Column(String, default="PENDING")  # PENDING, PRINTING, DONE, SHIPPED, CANCELED, REFUNDED
     amount = Column(Float, nullable=True)
     buyer_name = Column(String, nullable=True)
     buyer_contact = Column(String, nullable=True)

@@ -6,18 +6,22 @@ function fmt(v) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const statusList = ['PENDING', 'PRINTING', 'DONE', 'SHIPPED'];
+const statusList = ['PENDING', 'PRINTING', 'DONE', 'SHIPPED', 'CANCELED', 'REFUNDED'];
 const statusColors = {
   PENDING: '#f59e0b',
   PRINTING: '#3b82f6',
   DONE: '#22c55e',
   SHIPPED: '#6b7280',
+  CANCELED: '#ef4444',
+  REFUNDED: '#f97316',
 };
 const statusLabels = {
   PENDING: 'Pendente',
   PRINTING: 'Imprimindo',
   DONE: 'Concluído',
   SHIPPED: 'Enviado',
+  CANCELED: 'Cancelado',
+  REFUNDED: 'Devolvido',
 };
 
 export default function Orders() {

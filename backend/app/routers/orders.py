@@ -97,7 +97,7 @@ def update_order(order_id: int, payload: schemas.OrderUpdate, db: Session = Depe
 @router.patch("/{order_id}/status", response_model=schemas.OrderResponse)
 def update_order_status(order_id: int, status: str, db: Session = Depends(get_db)):
     """Atualiza apenas o status. Valores: PENDING, PRINTING, DONE, SHIPPED."""
-    valid = {"PENDING", "PRINTING", "DONE", "SHIPPED"}
+    valid = {"PENDING", "PRINTING", "DONE", "SHIPPED", "CANCELED", "REFUNDED"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Status inválido. Use: {valid}")
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
