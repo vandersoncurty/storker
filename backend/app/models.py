@@ -150,6 +150,16 @@ class FinanceEntry(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
+class OrderStatus(Base):
+    __tablename__ = "order_statuses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, nullable=False, index=True)
+    label = Column(String, nullable=False)
+    color = Column(String, nullable=False)
+    sort_order = Column(Integer, default=0)
+
+
 class ThingiverseCollectionConfig(Base):
     """Collections configuradas para sync automático."""
     __tablename__ = "thingiverse_collections"

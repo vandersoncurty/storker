@@ -11,6 +11,12 @@ from .. import models, schemas
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
+@router.get("/statuses", response_model=List[schemas.OrderStatusResponse])
+def list_order_statuses(db: Session = Depends(get_db)):
+    """Lista todos os status de pedido disponíveis."""
+    return db.query(models.OrderStatus).order_by(models.OrderStatus.sort_order).all()
+
+
 def _record_sale_finance(order: models.Order, db: Session):
     if order.amount and order.amount > 0:
         existing = db.query(models.FinanceEntry).filter(
@@ -96,8 +102,9 @@ def update_order(order_id: int, payload: schemas.OrderUpdate, db: Session = Depe
 
 @router.patch("/{order_id}/status", response_model=schemas.OrderResponse)
 def update_order_status(order_id: int, status: str, db: Session = Depends(get_db)):
-    """Atualiza apenas o status. Valores: PENDING, PRINTING, DONE, SHIPPED."""
-    valid = {"PENDING", "PRINTING", "DONE", "SHIPPED", "CANCELED", "REFUNDED"}
+    """Atualiza apenas o status. Valores vindos da tabela order_statuses."""
+    db_codes = {r.code for r in db.query(models.OrderStatus.code).all()}
+    valid = db_codes if db_codes else {"PENDING", "PRINTING", "DONE", "SHIPPED", "CANCELED", "REFUNDED"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Status inválido. Use: {valid}")
     order = db.query(models.Order).filter(models.Order.id == order_id).first()

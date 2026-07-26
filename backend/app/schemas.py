@@ -142,6 +142,16 @@ class OrderItemResponse(BaseModel):
     product: Optional[ProductResponse] = None
 
 
+class OrderStatusResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    label: str
+    color: str
+    sort_order: int
+
+
 class OrderResponse(OrderBase):
     model_config = ConfigDict(from_attributes=True)
 

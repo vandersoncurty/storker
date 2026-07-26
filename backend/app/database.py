@@ -74,6 +74,7 @@ def check_and_migrate():
                     _dialect_safe_add_column(engine, table_name, column)
 
     _migrate_absolute_to_relative_paths()
+    _seed_order_statuses()
 
 
 def _migrate_absolute_to_relative_paths():
@@ -126,3 +127,28 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+DEFAULT_ORDER_STATUSES = [
+    {"code": "PENDING", "label": "Pendente", "color": "#f59e0b", "sort_order": 1},
+    {"code": "PRINTING", "label": "Imprimindo", "color": "#3b82f6", "sort_order": 2},
+    {"code": "DONE", "label": "Concluído", "color": "#22c55e", "sort_order": 3},
+    {"code": "SHIPPED", "label": "Enviado", "color": "#6b7280", "sort_order": 4},
+    {"code": "CANCELED", "label": "Cancelado", "color": "#ef4444", "sort_order": 5},
+    {"code": "REFUNDED", "label": "Devolvido", "color": "#f97316", "sort_order": 6},
+]
+
+
+def _seed_order_statuses():
+    from .models import OrderStatus
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
+    if "order_statuses" not in set(inspector.get_table_names()):
+        return
+    with SessionLocal() as db:
+        existing = {r.code for r in db.query(OrderStatus).all()}
+        for data in DEFAULT_ORDER_STATUSES:
+            if data["code"] not in existing:
+                db.add(OrderStatus(**data))
+        if db.new:
+            db.commit()
