@@ -2,7 +2,8 @@
 // Backend: pytest | Frontend: oxlint + vite build | Docker: build imagens
 //
 // Pré-requisitos no Jenkins:
-//   - Plugins: Pipeline, Git, JUnit, NodeJS, Python (ou ajuste o bloco tools)
+//   - Plugins: Pipeline, Git, JUnit, NodeJS
+//   - Agent com python3 (3.12+) no PATH — o backend é criado em venv
 //   - Docker CLI disponível no agent (estágio de build de imagens)
 
 pipeline {
@@ -10,7 +11,7 @@ pipeline {
 
     tools {
         // Nomes devem bater com as instalações configuradas em Global Tool Configuration
-        python 'Python 3.12'
+        // Python: usar o python3 do próprio agente (plugin Python está depreciado)
         nodejs 'Node 20'
     }
 
@@ -35,7 +36,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                        python -m venv .venv-ci
+                        python3 --version
+                        python3 -m venv .venv-ci
                         .venv-ci/bin/pip install --upgrade pip
                         .venv-ci/bin/pip install -r requirements.txt
                     '''
