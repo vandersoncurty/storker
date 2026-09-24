@@ -124,7 +124,7 @@ pipeline {
         }
         cleanup {
             // Requer plugin Workspace Cleanup; remova se não estiver instalado
-            cleanWs(disposeAfterUse: false)
+            cleanWs()
         }
     }
 }
